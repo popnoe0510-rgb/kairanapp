@@ -5,8 +5,32 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 from datetime import timedelta, timezone
 
-# スマホ向けに画面幅をいっぱい使う設定
+# 画面幅いっぱいにレイアウトを広げる
 st.set_page_config(page_title="回覧板チェック", layout="centered")
+
+# アプリ全体の文字サイズやボタンの間隔をスマホ用に強制最適化する魔法のコード
+st.markdown("""
+    <style>
+        /* タイトルの文字を少し小さくして1行に収める */
+        .responsive-title {
+            font-size: 24px !important;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        /* 横並びのレイアウトがスマホで縦に潰れるのを防ぐ */
+        [data-testid="column"] {
+            width: calc(50% - 8px) !important;
+            flex: 1 1 calc(50% - 8px) !important;
+            min-width: calc(50% - 8px) !important;
+        }
+        /* ボタンの高さを少し低くしてコンパクトにする */
+        .stButton>button {
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+            height: 34px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # 1. スプレッドシート接続
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -26,49 +50,49 @@ except Exception as e:
 # データの読み込み
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
-# 回覧順で並び替え
 df = df.sort_values(by="回覧順").reset_index(drop=True)
 
-# タブ機能で「一般画面」と「管理者画面」を分ける
+# タブ機能
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
 
 # ==========================================
-#  タブ1：一般回覧者用の画面（すっきりコンパクト版）
+#  タブ1：一般回覧者用の画面（横並びキープ版）
 # ==========================================
 with tab1:
-    # タイトルを少し小さめのサイズに変更
-    st.markdown("## ✅ 回覧板チェック状況")
+    st.markdown('<p class="responsive-title">✅ 回覧板チェック状況</p>', unsafe_allow_html=True)
     st.markdown("---")
     
     for i, row in df.iterrows():
-        # 名前とボタンの幅のバランスを調整 [3:1] から [2:1] にしてボタンを押しやすく
-        col1, col2 = st.columns([2, 1])
+        # [3:2] の割合で完全に横並びを維持させます
+        col1, col2 = st.columns([3, 2])
         
         with col1:
-            # ###（大文字）から標準の太字に変更して、1行に収まりやすくしました
+            # 名前とアイコンをスッキリ配置
             if row['確認状況'] == '確認済':
                 st.markdown(f"**✅ {row['回覧順']}. {row['お名前']}**")
-                st.caption(f"（{row['確認日時']} 確認済）")
+                st.caption(f"🕒 {row['確認日時']}")
             else:
                 st.markdown(f"**👤 {row['回覧順']}. {row['お名前']}**")
+                # 未確認の人は高さ合わせ用の空のテキストを入れる
+                st.write("")
         
         with col2:
             if row['確認状況'] != '確認済':
-                # ボタンの縦の隙間を減らすためにスッキリ配置
-                if st.button("確認する", key=f"btn_{i}", use_container_width=True):
+                # ボタンの文字を短くして横幅に収まりやすく
+                if st.button("確認", key=f"btn_{i}", use_container_width=True):
                     JST = timezone(timedelta(hours=+9), 'JST')
                     now = datetime.now(JST).strftime("%m/%d %H:%M")
                     
                     sheet.update_cell(int(i) + 2, 3, '確認済') 
                     sheet.update_cell(int(i) + 2, 4, now)     
-                    st.success(f"{row['お名前']}さんの確認を記録しました！")
+                    st.success(f"{row['お名前']}さん確認！")
                     st.rerun()
             else:
-                # 確認済みの場合は空白を詰める
-                st.write("")
+                # 確認済みの場合はスッキリ見せるために「確認済」とだけ表示
+                st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin-top: 4px;'>確認済</p>", unsafe_allow_html=True)
         
-        # 住民ごとの隙間を狭くするための薄い区切り線
-        st.markdown("<hr style='margin: 8px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
+        # 線の上下の隙間をギリギリまで狭くして画面にたくさん収めます
+        st.markdown("<hr style='margin: 4px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
 # ==========================================
 #  タブ2：管理者用の画面
