@@ -17,7 +17,7 @@ try:
     client = gspread.authorize(creds)
     
     # ⚠️ここにあなたのGoogleスプレッドシートのURLをそのまま貼り付けます
-    SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/あなたのスプレッドシートID/edit"
+    SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ak_gAsNeo9LfdIDCN5ym65OZvVTxlL_YBOriuKpWA9s/edit"
     
     sheet = client.open_by_url(SPREADSHEET_URL).sheet1
 except Exception as e:
