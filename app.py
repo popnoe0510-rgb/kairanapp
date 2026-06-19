@@ -3,7 +3,9 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+from datetime import timedelta, timezone
 
+# スマホ向けに画面幅をいっぱい使う設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
 # 1. スプレッドシート接続
@@ -13,7 +15,7 @@ try:
     creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     client = gspread.authorize(creds)
     
-    # 🔗 あなたのスプレッドシートURLを反映しました！
+    # 🔗 あなたのスプレッドシートURL
     SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ak_gAsNeo9LfdIDCN5ym65OZvVTxlL_YBOriuKpWA9s/edit"
     
     sheet = client.open_by_url(SPREADSHEET_URL).sheet1
@@ -31,32 +33,42 @@ df = df.sort_values(by="回覧順").reset_index(drop=True)
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
 
 # ==========================================
-#  タブ1：一般回覧者用の画面（いつもの画面）
+#  タブ1：一般回覧者用の画面（すっきりコンパクト版）
 # ==========================================
 with tab1:
-    st.title("✅ 回覧板チェック状況")
+    # タイトルを少し小さめのサイズに変更
+    st.markdown("## ✅ 回覧板チェック状況")
     st.markdown("---")
     
     for i, row in df.iterrows():
-        col1, col2 = st.columns([3, 1])
+        # 名前とボタンの幅のバランスを調整 [3:1] から [2:1] にしてボタンを押しやすく
+        col1, col2 = st.columns([2, 1])
+        
         with col1:
+            # ###（大文字）から標準の太字に変更して、1行に収まりやすくしました
             if row['確認状況'] == '確認済':
-                st.write(f"### ✅ {row['回覧順']}. {row['お名前']}")
-                st.caption(f"（{row['確認日時']} に確認済み）")
+                st.markdown(f"**✅ {row['回覧順']}. {row['お名前']}**")
+                st.caption(f"（{row['確認日時']} 確認済）")
             else:
-                st.write(f"### 👤 {row['回覧順']}. {row['お名前']}")
+                st.markdown(f"**👤 {row['回覧順']}. {row['お名前']}**")
         
         with col2:
             if row['確認状況'] != '確認済':
-                if st.button("確認", key=f"btn_{i}", use_container_width=True):
-                    now = datetime.now().strftime("%m/%d %H:%M")
-                    # スプレッドシートの元の行番号（i+2）を更新
+                # ボタンの縦の隙間を減らすためにスッキリ配置
+                if st.button("確認する", key=f"btn_{i}", use_container_width=True):
+                    JST = timezone(timedelta(hours=+9), 'JST')
+                    now = datetime.now(JST).strftime("%m/%d %H:%M")
+                    
                     sheet.update_cell(int(i) + 2, 3, '確認済') 
                     sheet.update_cell(int(i) + 2, 4, now)     
                     st.success(f"{row['お名前']}さんの確認を記録しました！")
                     st.rerun()
             else:
-                st.write(" ")
+                # 確認済みの場合は空白を詰める
+                st.write("")
+        
+        # 住民ごとの隙間を狭くするための薄い区切り線
+        st.markdown("<hr style='margin: 8px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
 # ==========================================
 #  タブ2：管理者用の画面
@@ -64,9 +76,8 @@ with tab1:
 with tab2:
     st.title("⚙️ 管理者設定")
     
-    # 簡易パスワード保護
     password = st.text_input("管理者パスワードを入力してください", type="password")
-    if password == "7777": # 👈 好きなパスワードに変えられます
+    if password == "7777":
         st.success("認証されました")
         
         st.markdown("---")
@@ -87,9 +98,7 @@ with tab2:
 
         st.markdown("---")
         st.subheader("📝 名前の編集と順番の入れ替え")
-        st.caption("表のセルを直接ダブルクリックして、名前や順番を書き換えてください。終わったら下の保存ボタンを押します。")
         
-        # 画面上で編集できる表を表示
         edited_df = st.data_editor(
             df, 
             column_config={
