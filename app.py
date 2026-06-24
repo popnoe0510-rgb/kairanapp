@@ -6,11 +6,12 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: 最低限の背景色指定のみ（配置は構造で制御）
+# CSS: ボタンを消し、日時と取り消しアイコンを小さく配置するための調整
 st.markdown("""
     <style>
         .stApp { background-color: #0f172a !important; }
-        .stButton button { background-color: #1e40af !important; color: white !important; }
+        .member-info { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .date-text { font-size: 0.75rem; color: #94a3b8; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -27,29 +28,32 @@ with tab1:
     st.subheader("📋 現在の回覧状況")
     unconfirmed = df[df['確認状況'] != '確認済']
     if not unconfirmed.empty:
-        msg = f"📬 現在は **{unconfirmed.iloc[0]['お名前']} さん** の番です。"
-        if len(unconfirmed) > 1:
-            msg += f"\n\n👉 次は **{unconfirmed.iloc[1]['お名前']} さん** に回覧してください。"
-        st.info(msg)
+        st.info(f"📬 **{unconfirmed.iloc[0]['お名前']} さん** の番です。")
     else:
         st.success("✅ 全員確認完了です！")
     
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         with st.container(border=True):
-            # 1. 情報を表示する列と、ボタンを置く列に分ける（これで右詰めを実現）
-            col_info, col_btn = st.columns([3, 1])
+            # 行全体のレイアウト
+            col_left, col_right = st.columns([4, 1])
             
-            with col_info:
-                time_str = f" <small style='color: #94a3b8;'>({row['確認日時']})</small>" if is_done else ""
-                st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {'✅' if is_done else '⏳'}{time_str}", unsafe_allow_html=True)
-            
-            with col_btn:
+            with col_left:
                 if is_done:
-                    if st.button("取り消し", key=f"undo_{row.name}"):
+                    # 確認済：名前 ＋ 日時 ＋ 🗑️ボタン
+                    st.markdown(f"<div class='member-info'>**{int(row['回覧順'])}. {row['お名前']}** ✅ <span class='date-text'>{row['確認日時']}</span></div>", unsafe_allow_html=True)
+                else:
+                    # 未確認：名前 ＋ ⏳
+                    st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** ⏳", unsafe_allow_html=True)
+            
+            with col_right:
+                if is_done:
+                    # 取り消しをアイコンボタンとして右詰めで配置
+                    if st.button("🗑️", key=f"undo_{row.name}", help="取り消し"):
                         sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
                         st.rerun()
                 else:
+                    # 確認を青いボタンで配置
                     if st.button("確認", key=f"btn_{row.name}", type="primary"):
                         now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                         sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
