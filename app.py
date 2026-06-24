@@ -9,7 +9,7 @@ from streamlit_sortables import sort_items
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 激しい色を抑え、落ち着いたディープブルー（青）に統一したスタイル設定
+# 🎨 激しい赤色を完全に抑え、落ち着いたディープブルーに統一するスタイル設定
 st.markdown("""
     <style>
         /* 全体の背景と文字色 */
@@ -34,11 +34,9 @@ st.markdown("""
             color: #ffffff !important;
         }
         
-        /* 🔵 ドラッグ＆ドロップ（streamlit-sortables）のカード色を落ち着いた青に上書き */
-        div[data-testid="stCustomComponentV1"] iframe, 
-        .st-emotion-cache-1cvg7f8, div.sortable-item {
-            background-color: #1f4068 !important;
-            color: #ffffff !important;
+        /* 🔥【最重要】外部から色が変わらないドラッグ＆ドロップ部品を強制的に青色へ変換 */
+        div[data-testid="stCustomComponentV1"] {
+            filter: hue-rotate(195deg) saturate(140%) contrast(95%) !important;
         }
         
         /* 削除ボタンなどのプライマリボタンだけは分ける(アクセントの赤) */
@@ -167,8 +165,6 @@ with tab2:
             
             if st.button("↕️ この順番で確定して保存する", use_container_width=True):
                 with st.spinner("新しい順番を保存中..."):
-                    current_order = df.loc[df["お名前"] == sorted_names[0], "回覧順"].values[0] if sorted_names else 1
-                    
                     sorted_df_list = []
                     for name in sorted_names:
                         matched_row = df[df["お名前"] == name].copy()
@@ -177,10 +173,12 @@ with tab2:
                     updated_df = pd.concat(sorted_df_list).reset_index(drop=True)
                     
                     output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
+                    output_df["row_num"] = output_df.index + 2
                     output_df["回覧順"] = output_df.index + 1
                     
+                    # スプレッドシートを更新
                     sheet.clear()
-                    sheet.update([output_df.columns.values.tolist()] + output_df.values.tolist())
+                    sheet.update([output_df[["回覧順", "お名前", "確認状況", "確認日時"]].columns.values.tolist()] + output_df[["回覧順", "お名前", "確認状況", "確認日時"]].values.tolist())
                     st.success("順番の並び替えが完了しました！")
                     st.rerun()
         else:
