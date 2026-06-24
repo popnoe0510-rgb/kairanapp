@@ -32,6 +32,10 @@ except Exception as e:
 
 # データの読み込み
 data = sheet.get_all_records()
+# 💡 スプレッドシート上の「実際の行番号（2行目スタート）」をデータに持たせる（ズレ防止）
+for index, row_data in enumerate(data):
+    row_data["row_num"] = index + 2
+
 df = pd.DataFrame(data)
 if not df.empty and "回覧順" in df.columns:
     df = df.sort_values(by="回覧順").reset_index(drop=True)
@@ -63,8 +67,11 @@ with tab1:
                     if st.button("確認", key=f"btn_{i}", use_container_width=True):
                         JST = timezone(timedelta(hours=+9), 'JST')
                         now = datetime.now(JST).strftime("%m/%d %H:%M")
-                        sheet.update_cell(int(i) + 2, 3, '確認済') 
-                        sheet.update_cell(int(i) + 2, 4, now)     
+                        
+                        # 💡 インデックス i ではなく、保持しておいた正確な row_num を使う
+                        target_row = int(row["row_num"])
+                        sheet.update_cell(target_row, 3, '確認済') 
+                        sheet.update_cell(target_row, 4, now)     
                         st.success(f"{row['お名前']}さん確認！")
                         st.rerun()
                 else:
@@ -119,7 +126,7 @@ with tab2:
             st.info("現在、誰も登録されていません。")
 
         # ------------------------------------------
-        #  3. 回覧順の編集（新規追加機能）
+        #  3. 回覧順の編集（並び替え）
         # ------------------------------------------
         st.markdown("---")
         st.markdown("### ↕️ 3. 回覧順の編集（並び替え）")
@@ -128,5 +135,74 @@ with tab2:
             with col_p1:
                 move_user = st.selectbox("移動させる人", options=df["お名前"].tolist(), key="move_user_select")
             with col_p2:
-                # 1番から現在の最大人数までの選択肢
-                target_order = st.selectbox("新しい順番（何番にするか）", options=list(range(1, len(df) + 1
+                target_order = st.selectbox("新しい順番（何番にするか）", options=list(range(1, len(df) + 1)), key="target_order_select")
+            
+            if st.button("↕️ 順番を入れ替える", use_container_width=True):
+                with st.spinner("並び替え中..."):
+                    current_order = df.loc[df["お名前"] == move_user, "回覧順"].values[0]
+                    
+                    if current_order != target_order:
+                        user_row = df[df["お名前"] == move_user].copy()
+                        remaining_df = df[df["お名前"] != move_user].copy()
+                        
+                        user_row["回覧順"] = target_order - 0.5 if target_order < current_order else target_order + 0.5
+                        
+                        updated_df = pd.concat([remaining_df, user_row]).sort_values(by="回覧順").reset_index(drop=True)
+                        # 不要な行番号カラムを落として純粋なデータにする
+                        output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
+                        output_df["回覧順"] = output_df.index + 1
+                        
+                        sheet.clear()
+                        # ヘッダーと中身をまとめて一括上書き（超高速化）
+                        sheet.update([output_df.columns.values.tolist()] + output_df.values.tolist())
+                        st.success(f"「{move_user}」さんを {target_order} 番に移動しました！")
+                        st.rerun()
+                    else:
+                        st.info("現在と同じ順番が選択されています。")
+        else:
+            st.info("並び替えるには2人以上の登録が必要です。")
+
+        # ------------------------------------------
+        #  4. 人の追加
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### ➕ 4. メンバーの追加")
+        new_name = st.text_input("追加する人のお名前を入力してください", key="add_name_input")
+        
+        if st.button("✨ この人を追加する", use_container_width=True):
+            if new_name.strip() == "":
+                st.warning("名前を入力してください。")
+            else:
+                with st.spinner("追加中..."):
+                    next_order = int(df["回覧順"].max() + 1) if (not df.empty and "回覧順" in df.columns) else 1
+                    sheet.append_row([next_order, new_name.strip(), "未確認", ""])
+                    st.success(f"「{new_name}」さんを追加しました！")
+                    st.rerun()
+
+        # ------------------------------------------
+        #  5. 人の削除
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### 🗑️ 5. メンバーの削除")
+        if not df.empty and "お名前" in df.columns:
+            delete_target = st.selectbox("削除する人を選択してください", options=df["お名前"].tolist(), key="delete_name_select")
+            
+            if st.button("❌ この人を削除する", type="primary", use_container_width=True):
+                with st.spinner("削除中..."):
+                    updated_df = df[df["お名前"] != delete_target].copy()
+                    updated_df = updated_df.sort_values(by="回覧順").reset_index(drop=True)
+                    
+                    output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
+                    output_df["回覧順"] = output_df.index + 1
+                    
+                    sheet.clear()
+                    sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+                    if not output_df.empty:
+                        sheet.append_rows(output_df.values.tolist())
+                    st.success(f"「{delete_target}」さんを削除しました。")
+                    st.rerun()
+        else:
+            st.info("登録されている人がいません。")
+
+    elif password != "":
+        st.error("パスワードが違います。")
