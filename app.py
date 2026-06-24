@@ -94,30 +94,4 @@ def callback_reset():
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
 
 # ==========================================
-#  タブ1：一般回覧者用の画面
-# ==========================================
-with tab1:
-    st.markdown("### ✅ 回覧板チェック状況")
-    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-    
-    if df_raw.empty:
-        st.info("登録されているメンバーがいません。管理者メニューから追加してください。")
-    else:
-        for i, row in df_raw.iterrows():
-            col1, col2 = st.columns([3, 2])
-            with col1:
-                if row['確認状況'] == '確認済':
-                    st.markdown(f"**✅ {int(row['回覧順'])}. {row['お名前']}**")
-                    st.caption(f" 🕒 {row['確認日時']}")
-                else:
-                    st.markdown(f"👤 {int(row['回覧順'])}. {row['お名前']}")
-            
-            with col2:
-                if row['確認状況'] != '確認済':
-                    # デザイナー注：keyに一工夫入れてCSSを部分適用
-                    if st.button("確認する", key=f"btn_{i}", use_container_width=True):
-                        JST = timezone(timedelta(hours=+9), 'JST')
-                        now = datetime.now(JST).strftime("%m/%d %H:%M")
-                        try:
-                            cell = sheet.find(row['お名前'])
-                            if cell:
+#  タブ1：一般
