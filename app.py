@@ -9,7 +9,7 @@ from streamlit_sortables import sort_items
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 激しい赤色を完全に抑え、落ち着いたディープブルーに統一するスタイル設定
+# 🎨 激しい赤色を根底から完全に消し去り、ディープブルーに固定するスタイル設定
 st.markdown("""
     <style>
         /* 全体の背景と文字色 */
@@ -34,9 +34,16 @@ st.markdown("""
             color: #ffffff !important;
         }
         
-        /* 🔥【最重要】外部から色が変わらないドラッグ＆ドロップ部品を強制的に青色へ変換 */
-        div[data-testid="stCustomComponentV1"] {
-            filter: hue-rotate(195deg) saturate(140%) contrast(95%) !important;
+        /* 🔵 ドラッグ＆ドロップ（streamlit-sortables）要素の赤を完全に強制上書き */
+        div[data-testid="stCustomComponentV1"] div,
+        div[data-testid="stCustomComponentV1"] button,
+        div[data-testid="stCustomComponentV1"] span,
+        .sortable-item,
+        [class*="sortable"] {
+            background-color: #1f4068 !important;
+            color: #ffffff !important;
+            background: #1f4068 !important;
+            border-color: #162447 !important;
         }
         
         /* 削除ボタンなどのプライマリボタンだけは分ける(アクセントの赤) */
