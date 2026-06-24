@@ -5,56 +5,75 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 from datetime import timedelta, timezone
 
-# 画面幅いっぱいにレイアウトを広げる
+# 画面幅をデバイスに合わせて自動調整する基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 スマホの余白を極限まで削り、絶対に横並びにするための強力なCSS
+# 📱 どんなスマホの画面サイズでも、自動で1行に綺麗に収めるための設定
 st.markdown("""
     <style>
-        /* 1. 画面最上部の巨大な空白を削る */
+        /* 1. 上部の無駄な空欄（余白）を限界まで消去 */
         .block-container {
-            padding-top: 1rem !important;
+            padding-top: 0.5rem !important;
             padding-bottom: 1rem !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
         }
-        /* 2. タブの上の不要な隙間を詰める */
         [data-testid="stHeader"] {
             height: 0px !important;
             background: transparent !important;
         }
-        /* 3. タイトルの文字サイズと余白調整 */
+        
+        /* 2. タイトルのサイズと隙間の調整 */
         .responsive-title {
-            font-size: 22px !important;
+            font-size: 20px !important;
             font-weight: bold;
-            margin: 0px 0px 10px 0px !important;
-            padding: 0px !important;
+            margin: 0px 0px 8px 0px !important;
         }
-        /* 4. スマホ画面でも絶対に縦割れせず、横並びを維持する設定 */
-        [data-testid="stHorizontalBlock"] {
+
+        /* 3. 【最重要】表示デバイスの幅に合わせて自動で1行に収める魔法の箱（Flexbox） */
+        .kairan-row {
             display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
+            justify-content: space-between !important;
             align-items: center !important;
-            gap: 10px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 4px 0px !important;
         }
-        [data-testid="column"] {
-            width: auto !important;
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
+        
+        /* 左側（お名前エリア）の自動幅調整 */
+        .kairan-name-box {
+            flex: 1 !important;
+            min-width: 0 !important; /* 文字溢れ防止 */
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-size: 15px !important;
         }
-        /* 左側（名前）と右側（ボタン）の比率を固定 */
-        [data-testid="stHorizontalBlock"] > div:nth-child(1) {
-            flex: 3 3 0% !important;
+        
+        /* 右側（ボタン・確認済エリア）の幅固定と縮小化 */
+        .kairan-action-box {
+            flex-shrink: 0 !important;
+            width: 85px !important; /* ボタンがはみ出さない最適なサイズ */
+            text-align: right !important;
         }
-        [data-testid="stHorizontalBlock"] > div:nth-child(2) {
-            flex: 2 2 0% !important;
-        }
-        /* 5. ボタンの高さをスリムにして1行に収める */
-        .stButton>button {
+
+        /* 4. 「確認する」ボタン自体のサイズを小さくしてスマホに収める */
+        div.stButton > button {
+            width: 100% !important;
+            height: 32px !important;
             padding: 0px !important;
-            height: 36px !important;
-            line-height: 36px !important;
+            font-size: 13px !important;
+            line-height: 32px !important;
+            border-radius: 4px !important;
+        }
+        
+        /* 確認済テキストの調整 */
+        .status-done {
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 0;
+            text-align: center;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -83,36 +102,39 @@ df = df.sort_values(by="回覧順").reset_index(drop=True)
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
 
 # ==========================================
-#  タブ1：一般回覧者用の画面
+#  タブ1：一般回覧者用の画面（完全自動調整版）
 # ==========================================
 with tab1:
     st.markdown('<p class="responsive-title">✅ 回覧板チェック状況</p>', unsafe_allow_html=True)
     st.markdown("---")
     
     for i, row in df.iterrows():
-        col1, col2 = st.columns([3, 2])
+        # HTMLのカスタムレイアウトを使って、デバイスに合わせ左右に綺麗に配置します
+        name_html = f"**👤 {row['回覧順']}. {row['お名前']}**"
+        if row['確認状況'] == '確認済':
+            name_html = f"**✅ {row['回覧順']}. {row['お名前']}** <span style='font-size:11px; color:gray; font-weight:normal;'>({row['確認日時']})</span>"
+            
+        # 1行のコンテナを開始
+        st.markdown(f'<div class="kairan-row"><div class="kairan-name-box">{name_html}</div>', unsafe_allow_html=True)
         
-        with col1:
-            if row['確認状況'] == '確認済':
-                st.markdown(f"**✅ {row['回覧順']}. {row['お名前']}**")
-                st.caption(f"🕒 {row['確認日時']}")
-            else:
-                st.markdown(f"**👤 {row['回覧順']}. {row['お名前']}**")
+        # ボタンまたは確認済テキストの配置
+        if row['確認状況'] != '確認済':
+            if st.button("確認する", key=f"btn_{i}"):
+                JST = timezone(timedelta(hours=+9), 'JST')
+                now = datetime.now(JST).strftime("%m/%d %H:%M")
+                
+                sheet.update_cell(int(i) + 2, 3, '確認済') 
+                sheet.update_cell(int(i) + 2, 4, now)     
+                st.success(f"{row['お名前']}さん確認！")
+                st.rerun()
+        else:
+            st.markdown("<p class='status-done'>確認済</p>", unsafe_allow_html=True)
+            
+        # コンテナを閉じる
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        with col2:
-            if row['確認状況'] != '確認済':
-                if st.button("確認", key=f"btn_{i}", use_container_width=True):
-                    JST = timezone(timedelta(hours=+9), 'JST')
-                    now = datetime.now(JST).strftime("%m/%d %H:%M")
-                    
-                    sheet.update_cell(int(i) + 2, 3, '確認済') 
-                    sheet.update_cell(int(i) + 2, 4, now)     
-                    st.success(f"{row['お名前']}さん確認！")
-                    st.rerun()
-            else:
-                st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0; line-height: 36px;'>確認済</p>", unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin: 4px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
+        # 区切り線
+        st.markdown("<hr style='margin: 2px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
 # ==========================================
 #  タブ2：管理者用の画面
