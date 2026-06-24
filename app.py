@@ -7,29 +7,57 @@ from datetime import datetime, timedelta, timezone
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 眩しい赤色を徹底排除した、ディープブルー専用スタイル
+# 🎨 【デザイナー監修】モダン・ディープブルーUIスタイル
 st.markdown("""
     <style>
-        .stApp { background-color: #33363f !important; color: #ffffff !important; }
+        /* 全体の背景とベースフォント */
+        .stApp { background-color: #242730 !important; color: #ffffff !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .block-container { padding-top: 3.5rem !important; }
-        [data-testid="stHeader"] { background-color: #33363f !important; }
+        [data-testid="stHeader"] { background-color: #242730 !important; }
         
-        /* タブのデザイン */
-        div[data-testid="stTabs"] button { flex: 1 !important; height: 48px !important; font-weight: bold !important; }
-        div[data-testid="stTabs"] button[aria-selected="true"] { background-color: #1a457a !important; color: #ffffff !important; }
+        /* タブをよりフラットでモダンなデザインに */
+        div[data-testid="stTabs"] button { flex: 1 !important; height: 50px !important; font-weight: 600 !important; font-size: 15px !important; color: #8e94a6 !important; border: none !important; }
+        div[data-testid="stTabs"] button[aria-selected="true"] { background-color: #2f3442 !important; color: #38ef7d !important; border-radius: 8px 8px 0 0 !important; }
         
-        /* 🔵 ボタンを落ち着いたディープブルーに統一 */
+        /* 🟩 一般ユーザー用の「確認ボタン」：押しやすさを最優先したクリーンなグリーン */
+        div.stButton > button[key^="btn_"] {
+            background-color: #38ef7d !important;
+            color: #111111 !important;
+            font-weight: bold !important;
+            border: none !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(56, 239, 125, 0.2);
+            height: 42px !important;
+        }
+        
+        /* 🔵 管理者用の「セカンダリボタン」（リセットなど）：背景に溶け込むシックなデザイン */
         div.stButton > button {
-            background-color: #1f4068 !important;
+            background-color: #2f3442 !important;
             color: #ffffff !important;
-            border: 1px solid #162447 !important;
-            border-radius: 6px !important;
-            transition: background-color 0.3s ease;
+            border: 1px solid #41485c !important;
+            border-radius: 8px !important;
+            height: 42px !important;
+            transition: all 0.2s ease;
         }
         div.stButton > button:hover {
-            background-color: #162447 !important;
-            color: #ffffff !important;
+            background-color: #3d4357 !important;
+            border-color: #525b75 !important;
         }
+        
+        /* 🚀 管理者用の「メイン保存ボタン」：最重要アクションとして輝かせる青 */
+        div.stButton > button[key="save_master_btn"] {
+            background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%) !important;
+            color: #ffffff !important;
+            font-weight: bold !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(0, 114, 255, 0.3);
+        }
+        
+        /* リストの区切り線 */
+        .divider { margin: 12px 0; border: 0; border-top: 1px solid #3d4357; }
+        
+        /* 確認済みのリッチなテキスト表現 */
+        .checked-status { color: #38ef7d; font-weight: bold; text-align: center; margin: 0; font-size: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -47,16 +75,11 @@ except Exception as e:
 
 # データの読み込み
 data = sheet.get_all_records()
-
-# 読み込んだ生データを保持するDFを作成
 df_raw = pd.DataFrame(data)
 if not df_raw.empty and "回覧順" in df_raw.columns:
     df_raw["回覧順"] = pd.to_numeric(df_raw["回覧順"], errors='coerce').fillna(999)
     df_raw = df_raw.sort_values(by="回覧順").reset_index(drop=True)
 
-# ==========================================
-#  閲覧状況一括リセット用のコールバック関数
-# ==========================================
 def callback_reset():
     if not df_raw.empty:
         total_rows = len(df_raw) + 1
@@ -68,15 +91,14 @@ def callback_reset():
         sheet.update_cells(cell_list_time)
         st.toast("🔄 全員のステータスをリセットしました")
 
-# タブ切り替え
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
 
 # ==========================================
 #  タブ1：一般回覧者用の画面
 # ==========================================
 with tab1:
-    st.subheader("✅ 回覧板チェック状況")
-    st.markdown("---")
+    st.markdown("### ✅ 回覧板チェック状況")
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
     
     if df_raw.empty:
         st.info("登録されているメンバーがいません。管理者メニューから追加してください。")
@@ -85,102 +107,17 @@ with tab1:
             col1, col2 = st.columns([3, 2])
             with col1:
                 if row['確認状況'] == '確認済':
-                    st.write(f"✅ {int(row['回覧順'])}. {row['お名前']}")
-                    st.caption(f"🕒 {row['確認日時']}")
+                    st.markdown(f"**✅ {int(row['回覧順'])}. {row['お名前']}**")
+                    st.caption(f" 🕒 {row['確認日時']}")
                 else:
-                    st.write(f"👤 {int(row['回覧順'])}. {row['お名前']}")
+                    st.markdown(f"👤 {int(row['回覧順'])}. {row['お名前']}")
             
             with col2:
                 if row['確認状況'] != '確認済':
-                    if st.button("確認", key=f"btn_{i}", use_container_width=True):
+                    # デザイナー注：keyに一工夫入れてCSSを部分適用
+                    if st.button("確認する", key=f"btn_{i}", use_container_width=True):
                         JST = timezone(timedelta(hours=+9), 'JST')
                         now = datetime.now(JST).strftime("%m/%d %H:%M")
-                        
-                        # 元のスプレッドシート上の行番号を動的に検索（同期ズレ対策）
-                        # 完全に一致する名前の行を見つけて更新
                         try:
                             cell = sheet.find(row['お名前'])
                             if cell:
-                                sheet.update_cell(cell.row, 3, '確認済')
-                                sheet.update_cell(cell.row, 4, now)
-                                st.success(f"{row['お名前']}さん確認！")
-                                st.rerun()
-                        except Exception:
-                            st.error("データの更新に失敗しました。再読み込みしてください。")
-                else:
-                    st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0;'>確認済</p>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
-
-# ==========================================
-#  タブ2：管理者用の画面（統合スリム化版）
-# ==========================================
-with tab2:
-    st.subheader("⚙️ 管理者設定")
-    password = st.text_input("管理者パスワードを入力してください", type="password")
-    
-    if password == "7777":
-        st.success("認証されました")
-        
-        # ------------------------------------------
-        #  1. 閲覧状況のリセット
-        # ------------------------------------------
-        st.markdown("---")
-        st.markdown("### 🔁 1. 閲覧状況のリセット")
-        st.button("全員の確認状況を「未確認」に戻す", use_container_width=True, on_click=callback_reset)
-
-        # ------------------------------------------
-        #  2. メンバー名簿の完全統合管理（ここが今回のコアです）
-        # ------------------------------------------
-        st.markdown("---")
-        st.markdown("### 📝 2. 名簿の一括管理（追加・削除・並び替え）")
-        st.caption("👇 下のテキストエリアを直接編集してください。追加・削除・並び替えが同時に行えます。")
-        
-        # 現在のスプレッドシートの名前一覧を取得して表示
-        current_names_list = df_raw["お名前"].tolist() if not df_raw.empty else []
-        current_names_text = "\n".join(current_names_list)
-        
-        # 管理者が自由に編集するメインエリア
-        managed_text = st.text_area(
-            "回覧板の名簿リスト（1行にひとりずつ、回覧順に並べてください）",
-            value=current_names_text,
-            height=250,
-            key="integrated_member_management_area",
-            help="名前を追加したい場合は新しい行に入力し、削除したい場合はその行を消してください。上下を入れ替えれば並び順が変わります。"
-        )
-
-        if st.button("💾 この内容で名簿を完全に確定して保存する", use_container_width=True):
-            # テキストエリアから最新の行データを取得（空行は除外）
-            input_names = [line.strip() for line in managed_text.split("\n") if line.strip()]
-            
-            if not input_names:
-                st.error("名簿を空にすることはできません。最低1人以上入力してください。")
-            else:
-                with st.spinner("スプレッドシートのデータを完全に同期中..."):
-                    try:
-                        new_rows = []
-                        for idx, name in enumerate(input_names):
-                            # もともとスプレッドシートにいた人なら、確認状況と日時を引き継ぐ
-                            matched_old_row = df_raw[df_raw["お名前"] == name]
-                            
-                            if not matched_old_row.empty:
-                                status = matched_old_row.iloc[0]["確認状況"]
-                                c_time = matched_old_row.iloc[0]["確認日時"]
-                            else:
-                                # 新しく追加された人の場合は初期値
-                                status = "未確認"
-                                c_time = ""
-                                
-                            new_rows.append([idx + 1, name, status, c_time])
-                        
-                        # スプレッドシートを真っさらにして新しい名簿で一撃全上書き（同期ズレの可能性をゼロに）
-                        sheet.clear()
-                        sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
-                        sheet.append_rows(new_rows)
-                        
-                        st.success("名簿の更新（追加・削除・並び替え）が完全に保存されました！")
-                        st.rerun()
-                    except Exception as ex:
-                        st.error("スプレッドシートへの保存中にエラーが発生しました。接続を確認してください。")
-
-    elif password != "":
-        st.error("パスワードが違います。")
