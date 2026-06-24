@@ -6,11 +6,13 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: ボタンを消し、日時と取り消しアイコンを小さく配置するための調整
+# CSS: ボタンの青色化、背景色の固定
 st.markdown("""
     <style>
         .stApp { background-color: #0f172a !important; }
-        .member-info { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        /* 全ボタンを青系に強制変更 */
+        div.stButton > button { background-color: #1e40af !important; color: white !important; border: none !important; }
+        .member-info { font-size: 0.9rem; }
         .date-text { font-size: 0.75rem; color: #94a3b8; }
     </style>
 """, unsafe_allow_html=True)
@@ -28,33 +30,26 @@ with tab1:
     st.subheader("📋 現在の回覧状況")
     unconfirmed = df[df['確認状況'] != '確認済']
     if not unconfirmed.empty:
-        st.info(f"📬 **{unconfirmed.iloc[0]['お名前']} さん** の番です。")
+        st.info(f"📬 現在は **{unconfirmed.iloc[0]['お名前']} さん** の番です。")
     else:
         st.success("✅ 全員確認完了です！")
     
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         with st.container(border=True):
-            # 行全体のレイアウト
-            col_left, col_right = st.columns([4, 1])
-            
-            with col_left:
+            col_l, col_r = st.columns([4, 1])
+            with col_l:
                 if is_done:
-                    # 確認済：名前 ＋ 日時 ＋ 🗑️ボタン
                     st.markdown(f"<div class='member-info'>**{int(row['回覧順'])}. {row['お名前']}** ✅ <span class='date-text'>{row['確認日時']}</span></div>", unsafe_allow_html=True)
                 else:
-                    # 未確認：名前 ＋ ⏳
                     st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** ⏳", unsafe_allow_html=True)
-            
-            with col_right:
+            with col_r:
                 if is_done:
-                    # 取り消しをアイコンボタンとして右詰めで配置
-                    if st.button("🗑️", key=f"undo_{row.name}", help="取り消し"):
+                    if st.button("🗑️", key=f"undo_{row.name}"):
                         sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
                         st.rerun()
                 else:
-                    # 確認を青いボタンで配置
-                    if st.button("確認", key=f"btn_{row.name}", type="primary"):
+                    if st.button("確認", key=f"btn_{row.name}"):
                         now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                         sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
                         st.rerun()
@@ -65,7 +60,6 @@ with tab2:
         if st.button("🔄 全員リセット"):
             sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
             st.rerun()
-        
         new_names = st.text_area("名簿編集", value="\n".join(df["お名前"].tolist()))
         if st.button("💾 上書き保存"):
             sheet.clear()
