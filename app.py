@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 必要最低限のデザイン調整（エラーの原因になりやすい複雑なCSSを廃止）
+# 🎨 スッキリしたダークモード風のデザイン
 st.markdown("""
     <style>
         .stApp { background-color: #33363f !important; color: #ffffff !important; }
@@ -47,7 +47,7 @@ with tab1:
     st.markdown("---")
     
     if df.empty:
-        st.info("登録されているメンバーがいません。")
+        st.info("登録されているメンバーがいません。管理者メニューから追加してください。")
     else:
         for i, row in df.iterrows():
             col1, col2 = st.columns([3, 2])
@@ -72,7 +72,7 @@ with tab1:
             st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
 
 # ==========================================
-#  タブ2：管理者用の画面（追加・削除のみ）
+#  タブ2：管理者用の画面
 # ==========================================
 with tab2:
     st.subheader("⚙️ 管理者設定")
@@ -82,10 +82,48 @@ with tab2:
         st.success("認証されました")
         
         # ------------------------------------------
-        #  機能1：追加する
+        #  1. 閲覧状況のリセット
         # ------------------------------------------
         st.markdown("---")
-        st.caption("➕ 人を新規で追加する")
+        st.markdown("### 🔁 1. 閲覧状況のリセット")
+        if st.button("全員の確認状況を「未確認」に戻す", use_container_width=True):
+            if not df.empty:
+                with st.spinner("リセット中..."):
+                    total_rows = len(df) + 1
+                    cell_list_status = sheet.range(2, 3, total_rows, 3)
+                    cell_list_time = sheet.range(2, 4, total_rows, 4)
+                    
+                    for cell in cell_list_status: 
+                        cell.value = '未確認'
+                    for cell in cell_list_time: 
+                        cell.value = ''
+                    
+                    sheet.update_cells(cell_list_status)
+                    sheet.update_cells(cell_list_time)
+                    st.success("全員のステータスをリセットしました！")
+                    st.rerun()
+            else:
+                st.info("登録されている人がいません。")
+
+        # ------------------------------------------
+        #  2. 登録されている人の一覧リスト
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### 📋 2. 登録メンバー一覧")
+        if not df.empty:
+            # エラーの原因になる表編集（データエディタ）を使わず、シンプルに見やすいリストで表示
+            for _, row in df.iterrows():
+                status_emoji = "✅" if row['確認状況'] == "確認済" else "⏳"
+                time_str = f" ({row['確認日時']})" if row['確認日時'] else ""
+                st.text(f"【{row['回覧順']}番】 {row['お名前']} さん  [{status_emoji}{row['確認状況']}{time_str}]")
+        else:
+            st.info("現在、誰も登録されていません。")
+
+        # ------------------------------------------
+        #  3. 人の追加
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### ➕ 3. メンバーの追加")
         new_name = st.text_input("追加する人のお名前を入力してください", key="add_name_input")
         
         if st.button("✨ この人を追加する", use_container_width=True):
@@ -99,24 +137,27 @@ with tab2:
                     st.rerun()
 
         # ------------------------------------------
-        #  機能2：削除する
+        #  4. 人の削除
         # ------------------------------------------
         st.markdown("---")
-        st.caption("🗑️ 人を削除する")
+        st.markdown("### 🗑️ 4. メンバーの削除")
         if not df.empty and "お名前" in df.columns:
             delete_target = st.selectbox("削除する人を選択してください", options=df["お名前"].tolist(), key="delete_name_select")
             
             if st.button("❌ この人を削除する", type="primary", use_container_width=True):
                 with st.spinner("削除中..."):
+                    # 削除対象を除外したデータを作る
                     updated_df = df[df["お名前"] != delete_target].copy()
+                    # 回覧順を1から綺麗に並び替える
                     updated_df = updated_df.sort_values(by="回覧順").reset_index(drop=True)
                     updated_df["回覧順"] = updated_df.index + 1
                     
+                    # シートをクリアして並び替えたデータを保存
                     sheet.clear()
                     sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
                     if not updated_df.empty:
                         sheet.append_rows(updated_df.values.tolist())
-                    st.success(f"「{delete_target}」さんを削除しました。")
+                    st.success(f"「{delete_target}」さんを削除しました。（回覧順を自動で詰めました）")
                     st.rerun()
         else:
             st.info("登録されている人がいません。")
