@@ -142,7 +142,7 @@ with tab1:
         st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
 
 # ==========================================
-#  タブ2：管理者用の画面（追加・削除機能付き）
+#  タブ2：管理者用の画面（直感的・シンプル操作版）
 # ==========================================
 with tab2:
     st.markdown('<div class="admin-title">⚙️ 管理者設定</div>', unsafe_allow_html=True)
@@ -151,52 +151,48 @@ with tab2:
     if password == "7777":
         st.success("認証されました")
         
+        # ------------------------------------------
+        #  機能1：人を新規で追加する
+        # ------------------------------------------
         st.markdown("---")
-        st.markdown('<div class="admin-subtitle">🔁 回覧状況のリセット</div>', unsafe_allow_html=True)
+        st.markdown('<div class="admin-subtitle">➕ 人を新規で追加する</div>', unsafe_allow_html=True)
         
-        if st.button("全員の確認状況をクリアする", type="primary", use_container_width=True):
-            with st.spinner("リセット中..."):
-                total_rows = len(df) + 1
-                cell_list_status = sheet.range(2, 3, total_rows, 3)
-                cell_list_time = sheet.range(2, 4, total_rows, 4)
-                
-                for cell in cell_list_status: cell.value = '未確認'
-                for cell in cell_list_time: cell.value = ''
-                
-                sheet.update_cells(cell_list_status)
-                sheet.update_cells(cell_list_time)
-                st.success("全員のステータスをリセットしました！")
-                st.rerun()
+        new_name = st.text_input("追加する人のお名前を入力してください", key="add_name_input")
+        if st.button("✨ この人を追加する", use_container_width=True):
+            if new_name.strip() == "":
+                st.warning("名前を入力してください。")
+            else:
+                with st.spinner("追加中..."):
+                    # 現在の最大回覧順の次にする
+                    next_order = int(df["回覧順"].max() + 1) if not df.empty else 1
+                    # スプレッドシートの末尾に直接追加
+                    sheet.append_row([next_order, new_name.strip(), "未確認", ""])
+                    st.success(f"「{new_name}」さんを回覧順 {next_order} で追加しました！")
+                    st.rerun()
 
+        # ------------------------------------------
+        #  機能2：人を削除する
+        # ------------------------------------------
         st.markdown("---")
-        st.markdown('<div class="admin-subtitle">📝 名前の編集・追加・削除</div>', unsafe_allow_html=True)
+        st.markdown('<div class="admin-subtitle">🗑️ 人を削除する</div>', unsafe_allow_html=True)
         
-        # 行の追加・削除を可能にするため「num_rows='dynamic'」を設定
-        edited_df = st.data_editor(
-            df, 
-            column_config={
-                "回覧順": st.column_config.NumberColumn("回覧順", min_value=1, step=1, required=True),
-                "お名前": st.column_config.TextColumn("お名前", required=True),
-                "確認状況": st.column_config.SelectboxColumn("確認状況", options=["未確認", "確認済"], default="未確認"),
-            },
-            disabled=["確認日時"],
-            hide_index=True,
-            num_rows="dynamic",       # ✨ これにより追加・削除ボタンが出現します
-            use_container_width=True
-        )
-        
-        if st.button("編集内容をスプレッドシートに保存する", use_container_width=True):
-            with st.spinner("保存中..."):
-                # 新しく追加された行で空欄（None）がある場合はエラーを防ぐため処理
-                final_df = edited_df.dropna(subset=["回覧順", "お名前"])
-                final_df = final_df.sort_values(by="回覧順")
-                
-                # スプレッドシートを一新して並び替え後のデータで上書き
-                sheet.clear()
-                sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
-                sheet.append_rows(final_df.values.tolist())
-                
-                st.success("スプレッドシートへの保存が完了しました！")
-                st.rerun()
-    elif password != "":
-        st.error("パスワードが違います。")
+        if not df.empty:
+            # セレクトボックスから名前を選ぶだけで選べるように
+            delete_target = st.selectbox(
+                "削除する人を選択してください",
+                options=df["お名前"].tolist(),
+                key="delete_name_select"
+            )
+            
+            if st.button("❌ この人を削除する", type="primary", use_container_width=True):
+                with st.spinner("削除中..."):
+                    # 該当者を抜いた新しいデータフレームを作成
+                    updated_df = df[df["お名前"] != delete_target].copy()
+                    
+                    # 歯抜けになった回覧順を 1 から綺麗に採番し直す
+                    updated_df = updated_df.sort_values(by="回覧順").reset_index(drop=True)
+                    updated_df["回覧順"] = updated_df.index + 1
+                    
+                    # スプレッドシートをクリアして並び替えたデータを上書き
+                    sheet.clear()
+                    sheet.append_row(
