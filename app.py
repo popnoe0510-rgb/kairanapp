@@ -27,7 +27,7 @@ with tab1:
     st.subheader("📋 現在の回覧状況")
     unconfirmed = df[df['確認状況'] != '確認済']
     if not unconfirmed.empty:
-        st.info(f"👉 次は **{unconfirmed.iloc[0]['お名前']} さん** の番です。")
+        st.info(f"👉 次は **{unconfirmed.iloc[1]['お名前']} さん** の番です。")
     else:
         st.success("✅ 全員確認完了です！")
     
