@@ -18,7 +18,7 @@ st.markdown("""
         div[data-testid="stTabs"] button { flex: 1 !important; height: 48px !important; font-weight: bold !important; }
         div[data-testid="stTabs"] button[aria-selected="true"] { background-color: #1a457a !important; color: #ffffff !important; }
         
-        /* 🔵 通常ボタンを落ち着いたディープブルーに統一 */
+        /* 🔵 ボタンを落ち着いたディープブルーに統一 */
         div.stButton > button {
             background-color: #1f4068 !important;
             color: #ffffff !important;
@@ -29,12 +29,6 @@ st.markdown("""
         div.stButton > button:hover {
             background-color: #162447 !important;
             color: #ffffff !important;
-        }
-        
-        /* ❌ 削除ボタン（プライマリ）のみアクセントの赤 */
-        div.stButton > button[data-testid="baseButton-primary"] {
-            background-color: #e43f5a !important;
-            border: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -53,21 +47,19 @@ except Exception as e:
 
 # データの読み込み
 data = sheet.get_all_records()
-for index, row_data in enumerate(data):
-    row_data["row_num"] = index + 2
 
-df = pd.DataFrame(data)
-if not df.empty and "回覧順" in df.columns:
-    # 確実を期すため、数値型にキャストしてからソート
-    df["回覧順"] = pd.to_numeric(df["回覧順"], errors='coerce').fillna(999)
-    df = df.sort_values(by="回覧順").reset_index(drop=True)
+# 読み込んだ生データを保持するDFを作成
+df_raw = pd.DataFrame(data)
+if not df_raw.empty and "回覧順" in df_raw.columns:
+    df_raw["回覧順"] = pd.to_numeric(df_raw["回覧順"], errors='coerce').fillna(999)
+    df_raw = df_raw.sort_values(by="回覧順").reset_index(drop=True)
 
 # ==========================================
-#  コア機能用のコールバック関数群（4人体制テスト済）
+#  閲覧状況一括リセット用のコールバック関数
 # ==========================================
 def callback_reset():
-    if not df.empty:
-        total_rows = len(df) + 1
+    if not df_raw.empty:
+        total_rows = len(df_raw) + 1
         cell_list_status = sheet.range(2, 3, total_rows, 3)
         cell_list_time = sheet.range(2, 4, total_rows, 4)
         for cell in cell_list_status: cell.value = '未確認'
@@ -75,35 +67,6 @@ def callback_reset():
         sheet.update_cells(cell_list_status)
         sheet.update_cells(cell_list_time)
         st.toast("🔄 全員のステータスをリセットしました")
-
-def callback_add():
-    name_to_add = st.session_state.get("add_name_input", "").strip()
-    if name_to_add:
-        # 🔥【エンジニアA・B修正】 構文エラーを完全解決し、NaNリスクも排除した安全ロジック
-        if not df.empty and "回覧順" in df.columns:
-            max_val = df["回覧順"].max()
-            next_order = int(max_val + 1) if pd.notna(max_val) else 1
-        else:
-            next_order = 1
-            
-        sheet.append_row([next_order, name_to_add, "未確認", ""])
-        st.session_state["add_name_input"] = "" 
-        st.toast(f"✨ 「{name_to_add}」さんを追加しました")
-
-def callback_delete():
-    target_to_delete = st.session_state.get("delete_name_select", "")
-    if target_to_delete:
-        updated_df = df[df["お名前"] != target_to_delete].copy()
-        updated_df = updated_df.reset_index(drop=True)
-        
-        output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
-        output_df["回覧順"] = output_df.index + 1
-        
-        sheet.clear()
-        sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
-        if not output_df.empty:
-            sheet.append_rows(output_df.values.tolist())
-        st.toast(f"🗑️ 「{target_to_delete}」さんを削除しました")
 
 # タブ切り替え
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
@@ -115,10 +78,10 @@ with tab1:
     st.subheader("✅ 回覧板チェック状況")
     st.markdown("---")
     
-    if df.empty:
+    if df_raw.empty:
         st.info("登録されているメンバーがいません。管理者メニューから追加してください。")
     else:
-        for i, row in df.iterrows():
+        for i, row in df_raw.iterrows():
             col1, col2 = st.columns([3, 2])
             with col1:
                 if row['確認状況'] == '確認済':
@@ -132,17 +95,24 @@ with tab1:
                     if st.button("確認", key=f"btn_{i}", use_container_width=True):
                         JST = timezone(timedelta(hours=+9), 'JST')
                         now = datetime.now(JST).strftime("%m/%d %H:%M")
-                        target_row = int(row["row_num"])
-                        sheet.update_cell(target_row, 3, '確認済') 
-                        sheet.update_cell(target_row, 4, now)     
-                        st.success(f"{row['お名前']}さん確認！")
-                        st.rerun()
+                        
+                        # 元のスプレッドシート上の行番号を動的に検索（同期ズレ対策）
+                        # 完全に一致する名前の行を見つけて更新
+                        try:
+                            cell = sheet.find(row['お名前'])
+                            if cell:
+                                sheet.update_cell(cell.row, 3, '確認済')
+                                sheet.update_cell(cell.row, 4, now)
+                                st.success(f"{row['お名前']}さん確認！")
+                                st.rerun()
+                        except Exception:
+                            st.error("データの更新に失敗しました。再読み込みしてください。")
                 else:
                     st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0;'>確認済</p>", unsafe_allow_html=True)
             st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
 
 # ==========================================
-#  タブ2：管理者用の画面
+#  タブ2：管理者用の画面（統合スリム化版）
 # ==========================================
 with tab2:
     st.subheader("⚙️ 管理者設定")
@@ -159,81 +129,58 @@ with tab2:
         st.button("全員の確認状況を「未確認」に戻す", use_container_width=True, on_click=callback_reset)
 
         # ------------------------------------------
-        #  2. 登録されている人の一覧リスト
+        #  2. メンバー名簿の完全統合管理（ここが今回のコアです）
         # ------------------------------------------
         st.markdown("---")
-        st.markdown("### 📋 2. 登録メンバー一覧")
-        if not df.empty:
-            for _, row in df.iterrows():
-                status_emoji = "✅" if row['確認状況'] == "確認済" else "⏳"
-                time_str = f" ({row['確認日時']})" if row['確認日時'] else ""
-                st.text(f"【{int(row['回覧順'])}番】 {row['お名前']} さん  [{status_emoji}{row['確認状況']}{time_str}]")
-        else:
-            st.info("現在、誰も登録されていません。")
+        st.markdown("### 📝 2. 名簿の一括管理（追加・削除・並び替え）")
+        st.caption("👇 下のテキストエリアを直接編集してください。追加・削除・並び替えが同時に行えます。")
+        
+        # 現在のスプレッドシートの名前一覧を取得して表示
+        current_names_list = df_raw["お名前"].tolist() if not df_raw.empty else []
+        current_names_text = "\n".join(current_names_list)
+        
+        # 管理者が自由に編集するメインエリア
+        managed_text = st.text_area(
+            "回覧板の名簿リスト（1行にひとりずつ、回覧順に並べてください）",
+            value=current_names_text,
+            height=250,
+            key="integrated_member_management_area",
+            help="名前を追加したい場合は新しい行に入力し、削除したい場合はその行を消してください。上下を入れ替えれば並び順が変わります。"
+        )
 
-        # ------------------------------------------
-        #  3. 回覧順の編集
-        # ------------------------------------------
-        st.markdown("---")
-        st.markdown("### ↕️ 3. 回覧順の編集（並び替え）")
-        if not df.empty and len(df) > 1:
-            st.caption("現在の並び順がテキストで表示されています。お名前の行を入れ替えて下のボタンを押してください。")
+        if st.button("💾 この内容で名簿を完全に確定して保存する", use_container_width=True):
+            # テキストエリアから最新の行データを取得（空行は除外）
+            input_names = [line.strip() for line in managed_text.split("\n") if line.strip()]
             
-            current_names_text = "\n".join(df["お名前"].tolist())
-            
-            sorted_text_input = st.text_area(
-                "お名前の順番（1行にひとりずつ入力）",
-                value=current_names_text,
-                height=180,
-                key="admin_sort_text_area"
-            )
-
-            if st.button("↕️ この順番で確定して保存する", use_container_width=True):
-                sorted_names = [line.strip() for line in sorted_text_input.split("\n") if line.strip()]
-                
-                with st.spinner("新しい順番をスプレッドシートに保存中..."):
+            if not input_names:
+                st.error("名簿を空にすることはできません。最低1人以上入力してください。")
+            else:
+                with st.spinner("スプレッドシートのデータを完全に同期中..."):
                     try:
-                        sorted_df_list = []
-                        for name in sorted_names:
-                            matched_row = df[df["お名前"] == name].copy()
-                            if not matched_row.empty:
-                                sorted_df_list.append(matched_row)
-                        
-                        # 🔥【エンジニアC安全ロジック】 入力ミスでリストが空になった場合のデータ全消えを防ぐ防衛策
-                        if sorted_df_list:
-                            updated_df = pd.concat(sorted_df_list).reset_index(drop=True)
-                            output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
-                            output_df["回覧順"] = output_df.index + 1
+                        new_rows = []
+                        for idx, name in enumerate(input_names):
+                            # もともとスプレッドシートにいた人なら、確認状況と日時を引き継ぐ
+                            matched_old_row = df_raw[df_raw["お名前"] == name]
                             
-                            sheet.clear()
-                            sheet.update([output_df[["回覧順", "お名前", "確認状況", "確認日時"]].columns.values.tolist()] + output_df[["回覧順", "お名前", "確認状況", "確認日時"]].values.tolist())
-                            st.success("順番の並び替えを保存しました！")
-                            st.rerun()
-                        else:
-                            st.error("有効な名前が入力されていません。")
+                            if not matched_old_row.empty:
+                                status = matched_old_row.iloc[0]["確認状況"]
+                                c_time = matched_old_row.iloc[0]["確認日時"]
+                            else:
+                                # 新しく追加された人の場合は初期値
+                                status = "未確認"
+                                c_time = ""
+                                
+                            new_rows.append([idx + 1, name, status, c_time])
+                        
+                        # スプレッドシートを真っさらにして新しい名簿で一撃全上書き（同期ズレの可能性をゼロに）
+                        sheet.clear()
+                        sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+                        sheet.append_rows(new_rows)
+                        
+                        st.success("名簿の更新（追加・削除・並び替え）が完全に保存されました！")
+                        st.rerun()
                     except Exception as ex:
-                        st.error("データの反映に失敗しました。お名前を確認してください。")
-        else:
-            st.info("並び替えるには2人以上の登録が必要です。")
-
-        # ------------------------------------------
-        #  4. 人の追加
-        # ------------------------------------------
-        st.markdown("---")
-        st.markdown("### ➕ 4. メンバーの追加")
-        st.text_input("追加する人のお名前を入力してください", key="add_name_input")
-        st.button("✨ この人を追加する", use_container_width=True, on_click=callback_add)
-
-        # ------------------------------------------
-        #  5. 人の削除
-        # ------------------------------------------
-        st.markdown("---")
-        st.markdown("### 🗑️ 5. メンバーの削除")
-        if not df.empty and "お名前" in df.columns:
-            st.selectbox("削除する人を選択してください", options=df["お名前"].tolist(), key="delete_name_select")
-            st.button("❌ この人を削除する", type="primary", use_container_width=True, on_click=callback_delete)
-        else:
-            st.info("登録されている人がいません。")
+                        st.error("スプレッドシートへの保存中にエラーが発生しました。接続を確認してください。")
 
     elif password != "":
         st.error("パスワードが違います。")
