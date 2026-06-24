@@ -142,10 +142,9 @@ with tab1:
         st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
 
 # ==========================================
-#  タブ2：管理者用の画面（フォント・配置最適化版）
+#  タブ2：管理者用の画面（追加・削除機能付き）
 # ==========================================
 with tab2:
-    # タイトル文字をスマホ向けにスマートなサイズに変更
     st.markdown('<div class="admin-title">⚙️ 管理者設定</div>', unsafe_allow_html=True)
     
     password = st.text_input("管理者パスワードを入力してください", type="password")
@@ -170,23 +169,29 @@ with tab2:
                 st.rerun()
 
         st.markdown("---")
-        st.markdown('<div class="admin-subtitle">📝 名前の編集と順番の入れ替え</div>', unsafe_allow_html=True)
+        st.markdown('<div class="admin-subtitle">📝 名前の編集・追加・削除</div>', unsafe_allow_html=True)
         
-        # 横幅いっぱいに綺麗に収まるようエディタを設定
+        # 行の追加・削除を可能にするため「num_rows='dynamic'」を設定
         edited_df = st.data_editor(
             df, 
             column_config={
-                "回覧順": st.column_config.NumberColumn("回覧順", min_value=1, step=1),
-                "確認状況": st.column_config.SelectboxColumn("確認状況", options=["未確認", "確認済"]),
+                "回覧順": st.column_config.NumberColumn("回覧順", min_value=1, step=1, required=True),
+                "お名前": st.column_config.TextColumn("お名前", required=True),
+                "確認状況": st.column_config.SelectboxColumn("確認状況", options=["未確認", "確認済"], default="未確認"),
             },
             disabled=["確認日時"],
             hide_index=True,
-            use_container_width=True  # 横幅いっぱいにフィットさせる
+            num_rows="dynamic",       # ✨ これにより追加・削除ボタンが出現します
+            use_container_width=True
         )
         
         if st.button("編集内容をスプレッドシートに保存する", use_container_width=True):
             with st.spinner("保存中..."):
-                final_df = edited_df.sort_values(by="回覧順")
+                # 新しく追加された行で空欄（None）がある場合はエラーを防ぐため処理
+                final_df = edited_df.dropna(subset=["回覧順", "お名前"])
+                final_df = final_df.sort_values(by="回覧順")
+                
+                # スプレッドシートを一新して並び替え後のデータで上書き
                 sheet.clear()
                 sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
                 sheet.append_rows(final_df.values.tolist())
