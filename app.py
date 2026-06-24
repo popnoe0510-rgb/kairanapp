@@ -8,7 +8,7 @@ from datetime import timedelta, timezone
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 背景色グレー、タブを濃い青色、かつ上部の被りを解消するカスタムCSS
+# 🎨 背景色グレー、タブを濃い青色、さらに管理者画面のフォントや隙間を最適化するCSS
 st.markdown("""
     <style>
         /* 1. アプリ全体の背景色をグレーに、文字を白に統一 */
@@ -55,7 +55,7 @@ st.markdown("""
             transition: all 0.2s ease;
         }
 
-        /* 5. 【ご要望】選択中のタブを「濃い青色」に装飾 */
+        /* 5. 選択中のタブを「濃い青色」に装飾 */
         div[data-testid="stTabs"] button[aria-selected="true"] {
             background-color: #1a457a !important; /* 視認性の高い濃い青色 */
             color: #ffffff !important;
@@ -66,6 +66,22 @@ st.markdown("""
         /* Streamlit標準の細い下線を消去 */
         div[data-testid="stTabs"] [data-baseweb="tab-highlight-bar"] {
             display: none !important;
+        }
+
+        /* 6. 管理者メニュー内の文字サイズ・フォームデザインの最適化 */
+        .admin-title {
+            font-size: 22px !important;
+            font-weight: bold !important;
+            margin-top: 10px !important;
+            margin-bottom: 15px !important;
+            color: #ffffff !important;
+        }
+        .admin-subtitle {
+            font-size: 17px !important;
+            font-weight: bold !important;
+            margin-top: 20px !important;
+            margin-bottom: 10px !important;
+            color: #f1f2f6 !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -94,10 +110,10 @@ df = df.sort_values(by="回覧順").reset_index(drop=True)
 tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
 
 # ==========================================
-#  タブ1：一般回覧者用の画面（確実な横並び版）
+#  タブ1：一般回覧者用の画面
 # ==========================================
 with tab1:
-    st.subheader("✅ 回覧板チェック状況")
+    st.markdown('<div class="admin-title">✅ 回覧板チェック状況</div>', unsafe_allow_html=True)
     st.markdown("---")
     
     for i, row in df.iterrows():
@@ -126,18 +142,20 @@ with tab1:
         st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
 
 # ==========================================
-#  タブ2：管理者用の画面
+#  タブ2：管理者用の画面（フォント・配置最適化版）
 # ==========================================
 with tab2:
-    st.title("⚙️ 管理者設定")
+    # タイトル文字をスマホ向けにスマートなサイズに変更
+    st.markdown('<div class="admin-title">⚙️ 管理者設定</div>', unsafe_allow_html=True)
     
     password = st.text_input("管理者パスワードを入力してください", type="password")
     if password == "7777":
         st.success("認証されました")
         
         st.markdown("---")
-        st.subheader("🔁 回覧状況のリセット")
-        if st.button("全員の確認状況をクリアする", type="primary"):
+        st.markdown('<div class="admin-subtitle">🔁 回覧状況のリセット</div>', unsafe_allow_html=True)
+        
+        if st.button("全員の確認状況をクリアする", type="primary", use_container_width=True):
             with st.spinner("リセット中..."):
                 total_rows = len(df) + 1
                 cell_list_status = sheet.range(2, 3, total_rows, 3)
@@ -152,8 +170,9 @@ with tab2:
                 st.rerun()
 
         st.markdown("---")
-        st.subheader("📝 名前の編集と順番の入れ替え")
+        st.markdown('<div class="admin-subtitle">📝 名前の編集と順番の入れ替え</div>', unsafe_allow_html=True)
         
+        # 横幅いっぱいに綺麗に収まるようエディタを設定
         edited_df = st.data_editor(
             df, 
             column_config={
@@ -161,10 +180,11 @@ with tab2:
                 "確認状況": st.column_config.SelectboxColumn("確認状況", options=["未確認", "確認済"]),
             },
             disabled=["確認日時"],
-            hide_index=True
+            hide_index=True,
+            use_container_width=True  # 横幅いっぱいにフィットさせる
         )
         
-        if st.button("編集内容をスプレッドシートに保存する"):
+        if st.button("編集内容をスプレッドシートに保存する", use_container_width=True):
             with st.spinner("保存中..."):
                 final_df = edited_df.sort_values(by="回覧順")
                 sheet.clear()
