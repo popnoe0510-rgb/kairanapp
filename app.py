@@ -4,24 +4,23 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timezone, timedelta
 
-st.set_page_config(page_title="回覧板", layout="centered")
+st.set_config = st.set_page_config(page_title="回覧板", layout="centered")
 
-# 🎨 高コントラスト・高視認性デザイン
+# 🎨 究極のダークUI：目に優しく、情報が映えるデザイン
 st.markdown("""
     <style>
-        .stApp { background-color: #f0f2f6; }
-        /* 文字は黒か白のコントラストを徹底 */
+        .stApp { background-color: #1e293b !important; color: #f1f5f9 !important; }
         .member-card { 
-            background: #ffffff; padding: 1rem; border-radius: 12px; 
-            margin-bottom: 0.5rem; border: 1px solid #dcdcdc;
-            color: #000000;
+            background: #334155 !important; padding: 1rem; border-radius: 12px; 
+            margin-bottom: 0.8rem; border: 1px solid #475569;
         }
-        @media (prefers-color-scheme: dark) {
-            .member-card { background: #262730; border: 1px solid #444; color: #ffffff; }
+        .name-text { font-size: 1.1rem; font-weight: 700; color: #f8fafc; }
+        .time-text { font-size: 0.85rem; color: #94a3b8; }
+        .stButton>button { 
+            width: 100%; border-radius: 6px !important; border: none !important; 
+            background-color: #3b82f6 !important; color: white !important; font-weight: 600 !important;
         }
-        .name { font-size: 1.1rem; font-weight: 800; }
-        .time { font-size: 0.9rem; color: #555; }
-        .stButton>button { width: 100%; font-weight: bold !important; }
+        .stTextArea textarea { background: #334155 !important; color: white !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -38,11 +37,9 @@ with tab1:
     st.subheader("📋 回覧板")
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
-        
-        # 明確なカード構成
         st.markdown(f"""<div class='member-card'>
-            <div class='name'>{int(row['回覧順'])}. {row['お名前']}</div>
-            <div class='time'>{ '✅ ' + str(row['確認日時']) if is_done else '⏳ 未確認' }</div>
+            <div class='name-text'>{int(row['回覧順'])}. {row['お名前']}</div>
+            <div class='time-text'>{ '✅ ' + str(row['確認日時']) if is_done else '⏳ 未確認' }</div>
         </div>""", unsafe_allow_html=True)
         
         if is_done:
@@ -50,7 +47,7 @@ with tab1:
                 sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
                 st.rerun()
         else:
-            if st.button("確認する", key=f"btn_{row.name}", type="primary"):
+            if st.button("確認する", key=f"btn_{row.name}"):
                 now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                 sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
                 st.rerun()
