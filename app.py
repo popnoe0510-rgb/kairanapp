@@ -44,20 +44,25 @@ with tab1:
             st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}**")
         with col2:
             if row['確認状況'] == '確認済':
-                st.caption(f"✅ 確認済 ({row['確認日時']})")
+                # ✅ 誤操作時の取り消し機能を追加
+                if st.button("取り消す", key=f"undo_{row['お名前']}"):
+                    sheet.update_cell(row.name + 2, 3, '未確認')
+                    sheet.update_cell(row.name + 2, 4, '')
+                    st.rerun()
+                st.caption(f"確認済 ({row['確認日時']})")
             else:
+                # ✅ ボタン押下のリズムを最適化
                 if st.button("回覧板を見ました", key=f"btn_{row['お名前']}"):
-                    with st.spinner("記録しています..."):
+                    with st.spinner("記録中..."):
+                        time.sleep(0.5) # ロードは一瞬に
                         sheet.update_cell(row.name + 2, 3, '確認済')
                         sheet.update_cell(row.name + 2, 4, datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M"))
                         
-                        # 文言を「回してください」へ修正
                         next_person = unconfirmed.iloc[1]['お名前'] if len(unconfirmed) > 1 else None
                         next_msg = f"次は {next_person} さんへ回してください。" if next_person else "全員完了です！"
                         
                         st.success(f"確認完了！ {next_msg}")
-                        # 7秒間の余韻
-                        time.sleep(7)
+                        time.sleep(7) # メッセージは7秒表示
                         st.rerun()
 
 with tab2:
