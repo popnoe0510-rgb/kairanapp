@@ -5,24 +5,60 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 from datetime import timedelta, timezone
 
-# 📱 画面の基本設定（表示デバイスに合わせて自動調整）
+# 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 タブの邪魔をしない、安全な余白削減CSS
+# 🎨 タブを大きくして色をつけるカスタムCSS
 st.markdown("""
     <style>
-        /* 画面上部の余白を安全に削る */
+        /* 1. 画面上部の余白削減（クリックを邪魔しない設定） */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 1rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
-        /* クリックを邪魔していたヘッダー非表示のコードを見直し、高さを最小限にするだけに修正 */
         [data-testid="stHeader"] {
-            height: 10px !important;
+            height: 0px !important;
             background: transparent !important;
-            pointer-events: none; /* クリックをすり抜けさせてタブを触れるようにします */
+            pointer-events: none;
+        }
+
+        /* 2. タブ全体の並びと背景の調整 */
+        div[data-testid="stTabs"] {
+            border-bottom: none !important;
+            gap: 8px !important;
+        }
+        div[data-testid="stTabs"] [role="tablist"] {
+            gap: 10px !important;
+            width: 100% !important;
+        }
+
+        /* 3. 【最重要】タブのタッチ領域を広げてボタン化 */
+        div[data-testid="stTabs"] button {
+            flex: 1 !important;              /* 2つのタブで画面の横幅を等分する */
+            height: 48px !important;          /* 高さを出してタップしやすく（指のサイズ） */
+            background-color: #262730 !important; /* 選択されていないタブの背景色（暗いグレー） */
+            color: #a3a8b4 !important;        /* 選択されていないタブの文字色 */
+            border-radius: 8px !important;    /* 角を少し丸める */
+            border: 1px solid #464855 !important;
+            padding: 0px 10px !important;
+            font-weight: bold !important;
+            font-size: 15px !important;
+            transition: all 0.2s ease;
+        }
+
+        /* 4. 【選択中】現在選んでいるタブの明確な色付け */
+        div[data-testid="stTabs"] button[aria-selected="true"] {
+            background-color: #ff4b4b !important; /* 選択中の背景色（アクセントの赤系） */
+            color: #ffffff !important;           /* 選択中の文字色（白） */
+            border: 1px solid #ff4b4b !important;
+            box-shadow: 0px 4px 10px rgba(255, 75, 75, 0.3) !important; /* 少し光らせる */
+        }
+        
+        /* Streamlit標準の細い下線を消す */
+        div[data-testid="stTabs"] [data-baseweb="tab-highlight-bar"] {
+            display: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
