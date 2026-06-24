@@ -6,19 +6,11 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: 赤色を完全に廃し、青系グラデーションで統一
+# CSS: 赤系を排除し、青系で統一。ボタンは標準機能で配置
 st.markdown("""
     <style>
         .stApp { background-color: #0f172a; color: #f1f5f9; }
         .inline-time { font-size: 0.8rem; color: #94a3b8; margin-left: 8px; }
-        /* ボタンの色を青系に強制適用 */
-        div.stButton > button {
-            background-color: #1e40af !important;
-            color: white !important;
-            border: 1px solid #3b82f6 !important;
-        }
-        /* 警告エリアも青系で統一 */
-        .stAlert { background-color: #1e3a8a !important; color: #e0e7ff !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,14 +31,17 @@ with tab1:
     else:
         st.success("✅ 全員確認完了です！")
     
+    # 個人ごとに枠（コンテナ）を配置
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
+        
         with st.container(border=True):
             time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
             icon = '✅' if is_done else '⏳'
             
             st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {icon}{time_text}", unsafe_allow_html=True)
             
+            # 各個人の枠内にボタンを配置
             if is_done:
                 if st.button("取り消し", key=f"undo_{row.name}"):
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
