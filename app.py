@@ -6,11 +6,10 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: ボタンの青色化、背景色・フォント設定
+# CSS: 青系でボタン・配色を制御
 st.markdown("""
     <style>
         .stApp { background-color: #0f172a !important; }
-        /* ✗ボタンと確認ボタンを青系に強制変更 */
         div.stButton > button { background-color: #1e40af !important; color: white !important; border: 1px solid #3b82f6 !important; }
         .member-info { font-size: 0.9rem; color: #f1f5f9; }
         .date-text { font-size: 0.75rem; color: #94a3b8; }
@@ -45,7 +44,6 @@ with tab1:
                     st.markdown(f"<div class='member-info'>**{int(row['回覧順'])}. {row['お名前']}** ⏳</div>", unsafe_allow_html=True)
             with col_r:
                 if is_done:
-                    # ✗ アイコンに変更
                     if st.button("✗", key=f"undo_{row.name}"):
                         sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
                         st.rerun()
@@ -57,4 +55,14 @@ with tab1:
 
 with tab2:
     st.header("⚙️ 管理機能")
-    if st.text_input
+    # ここにコロンを確実に含めています
+    if st.text_input("パスワード", type="password") == "7777":
+        if st.button("🔄 全員リセット"):
+            sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
+            st.rerun()
+        new_names = st.text_area("名簿編集", value="\n".join(df["お名前"].tolist()))
+        if st.button("💾 上書き保存"):
+            sheet.clear()
+            sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+            sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
+            st.rerun()
