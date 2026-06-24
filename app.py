@@ -3,6 +3,8 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta, timezone
+# ↕️ ドラッグ＆ドロップ並び替え用のライブラリをインポート
+from streamlit_sortables import sort_items
 
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
@@ -32,7 +34,6 @@ except Exception as e:
 
 # データの読み込み
 data = sheet.get_all_records()
-# 💡 スプレッドシート上の「実際の行番号（2行目スタート）」をデータに持たせる（ズレ防止）
 for index, row_data in enumerate(data):
     row_data["row_num"] = index + 2
 
@@ -68,7 +69,6 @@ with tab1:
                         JST = timezone(timedelta(hours=+9), 'JST')
                         now = datetime.now(JST).strftime("%m/%d %H:%M")
                         
-                        # 💡 インデックス i ではなく、保持しておいた正確な row_num を使う
                         target_row = int(row["row_num"])
                         sheet.update_cell(target_row, 3, '確認済') 
                         sheet.update_cell(target_row, 4, now)     
@@ -100,10 +100,8 @@ with tab2:
                     cell_list_status = sheet.range(2, 3, total_rows, 3)
                     cell_list_time = sheet.range(2, 4, total_rows, 4)
                     
-                    for cell in cell_list_status: 
-                        cell.value = '未確認'
-                    for cell in cell_list_time: 
-                        cell.value = ''
+                    for cell in cell_list_status: cell.value = '未確認'
+                    for cell in cell_list_time: cell.value = ''
                     
                     sheet.update_cells(cell_list_status)
                     sheet.update_cells(cell_list_time)
@@ -126,39 +124,38 @@ with tab2:
             st.info("現在、誰も登録されていません。")
 
         # ------------------------------------------
-        #  3. 回覧順の編集（並び替え）
+        #  3. 回覧順の編集（🔥直感的なドラッグ＆ドロップ版）
         # ------------------------------------------
         st.markdown("---")
-        st.markdown("### ↕️ 3. 回覧順の編集（並び替え）")
+        st.markdown("### ↕️ 3. 回覧順の編集（ドラッグして並び替え）")
         if not df.empty and len(df) > 1:
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                move_user = st.selectbox("移動させる人", options=df["お名前"].tolist(), key="move_user_select")
-            with col_p2:
-                target_order = st.selectbox("新しい順番（何番にするか）", options=list(range(1, len(df) + 1)), key="target_order_select")
+            st.caption("👇 名前カードを長押ししながら上下にスライドして入れ替え、下の確定ボタンを押してください")
             
-            if st.button("↕️ 順番を入れ替える", use_container_width=True):
-                with st.spinner("並び替え中..."):
-                    current_order = df.loc[df["お名前"] == move_user, "回覧順"].values[0]
+            # 現在の名前リストを取得
+            current_names = df["お名前"].tolist()
+            
+            # 💡 指で動かせるドラッグ＆ドロップUIを表示
+            sorted_names = sort_items(current_names, direction="vertical", key="sortable_member_list")
+            
+            if st.button("↕️ この順番で確定して保存する", use_container_width=True):
+                with st.spinner("新しい順番を保存中..."):
+                    # ドラッグ後の名前順に合わせてDataFrameを並び替える
+                    sorted_df_list = []
+                    for name in sorted_names:
+                        matched_row = df[df["お名前"] == name].copy()
+                        sorted_df_list.append(matched_row)
                     
-                    if current_order != target_order:
-                        user_row = df[df["お名前"] == move_user].copy()
-                        remaining_df = df[df["お名前"] != move_user].copy()
-                        
-                        user_row["回覧順"] = target_order - 0.5 if target_order < current_order else target_order + 0.5
-                        
-                        updated_df = pd.concat([remaining_df, user_row]).sort_values(by="回覧順").reset_index(drop=True)
-                        # 不要な行番号カラムを落として純粋なデータにする
-                        output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
-                        output_df["回覧順"] = output_df.index + 1
-                        
-                        sheet.clear()
-                        # ヘッダーと中身をまとめて一括上書き（超高速化）
-                        sheet.update([output_df.columns.values.tolist()] + output_df.values.tolist())
-                        st.success(f"「{move_user}」さんを {target_order} 番に移動しました！")
-                        st.rerun()
-                    else:
-                        st.info("現在と同じ順番が選択されています。")
+                    updated_df = pd.concat(sorted_df_list).reset_index(drop=True)
+                    
+                    # カラム構造を綺麗にして、回覧順を1番から再採番
+                    output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
+                    output_df["回覧順"] = output_df.index + 1
+                    
+                    # スプレッドシートを一括上書き
+                    sheet.clear()
+                    sheet.update([output_df.columns.values.tolist()] + output_df.values.tolist())
+                    st.success("順番の並び替えが完了しました！")
+                    st.rerun()
         else:
             st.info("並び替えるには2人以上の登録が必要です。")
 
