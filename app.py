@@ -6,20 +6,17 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: 線を使わず、背景色でエリアを明確に分ける
+# CSS: コンテナそのものをカード化し、中の要素を完全に統括
 st.markdown("""
     <style>
         .stApp { background-color: #1e293b; color: #f1f5f9; }
-        /* メンバーごとの背景色エリア */
-        .member-area { 
-            background-color: #334155; 
-            padding: 1rem; 
-            border-radius: 12px; 
+        div[data-testid="stVerticalBlock"] > div:has(button) {
+            background-color: #334155;
+            padding: 1rem;
+            border-radius: 12px;
             margin-bottom: 1rem;
         }
         .inline-time { font-size: 0.8rem; color: #94a3b8; margin-left: 8px; }
-        /* Streamlitボタンの余白調整 */
-        .stButton button { margin-top: 0.5rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -43,26 +40,22 @@ with tab1:
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         
-        # HTMLでエリアを定義
-        time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
-        icon = '✅' if is_done else '⏳'
-        
-        # エリア開始（CSS: .member-area）
-        st.markdown(f"<div class='member-area'><strong>{int(row['回覧順'])}. {row['お名前']}</strong> {icon}{time_text}", unsafe_allow_html=True)
-        
-        # エリア内にボタンを配置
-        if is_done:
-            if st.button("取り消し", key=f"undo_{row.name}"):
-                sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
-                st.rerun()
-        else:
-            if st.button("確認", key=f"btn_{row.name}", type="primary"):
-                now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
-                sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
-                st.rerun()
-        
-        # エリア終了
-        st.markdown("</div>", unsafe_allow_html=True)
+        # ボタンと情報を同じブロックに強制的にまとめる
+        with st.container():
+            time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
+            icon = '✅' if is_done else '⏳'
+            
+            st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {icon}{time_text}", unsafe_allow_html=True)
+            
+            if is_done:
+                if st.button("取り消し", key=f"undo_{row.name}"):
+                    sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
+                    st.rerun()
+            else:
+                if st.button("確認", key=f"btn_{row.name}", type="primary"):
+                    now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
+                    sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
+                    st.rerun()
 
 with tab2:
     st.header("⚙️ 管理機能")
