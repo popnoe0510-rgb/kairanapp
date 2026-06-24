@@ -8,23 +8,30 @@ from datetime import timedelta, timezone
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 タブを大きくして色をつけるカスタムCSS
+# 🎨 背景色グレー、タブを濃い青色、かつ上部の被りを解消するカスタムCSS
 st.markdown("""
     <style>
-        /* 1. 画面上部の余白削減（クリックを邪魔しない設定） */
+        /* 1. アプリ全体の背景色をグレーに、文字を白に統一 */
+        .stApp {
+            background-color: #33363f !important; /* 落ち着いたグレー */
+            color: #ffffff !important;
+        }
+
+        /* 2. 上部のGitHubボタン等との被りを防ぐための安全な余白設定 */
         .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
+            padding-top: 3.5rem !important; /* 被らないように上に適度な隙間を空ける */
+            padding-bottom: 1.5rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
+        
+        /* システムヘッダーの重なりを防ぐ設定 */
         [data-testid="stHeader"] {
-            height: 0px !important;
-            background: transparent !important;
-            pointer-events: none;
+            height: 3.5rem !important;
+            background-color: #33363f !important; /* 背景色と同化させる */
         }
 
-        /* 2. タブ全体の並びと背景の調整 */
+        /* 3. タブ全体のレイアウト調整 */
         div[data-testid="stTabs"] {
             border-bottom: none !important;
             gap: 8px !important;
@@ -34,29 +41,29 @@ st.markdown("""
             width: 100% !important;
         }
 
-        /* 3. 【最重要】タブのタッチ領域を広げてボタン化 */
+        /* 4. タブを大きなボタン化（未選択状態：少し暗いグレー） */
         div[data-testid="stTabs"] button {
-            flex: 1 !important;              /* 2つのタブで画面の横幅を等分する */
-            height: 48px !important;          /* 高さを出してタップしやすく（指のサイズ） */
-            background-color: #262730 !important; /* 選択されていないタブの背景色（暗いグレー） */
-            color: #a3a8b4 !important;        /* 選択されていないタブの文字色 */
-            border-radius: 8px !important;    /* 角を少し丸める */
-            border: 1px solid #464855 !important;
+            flex: 1 !important;
+            height: 48px !important; /* 指で押しやすいサイズ */
+            background-color: #25262d !important;
+            color: #b0b5c0 !important;
+            border-radius: 8px !important;
+            border: 1px solid #4a4d5a !important;
             padding: 0px 10px !important;
             font-weight: bold !important;
             font-size: 15px !important;
             transition: all 0.2s ease;
         }
 
-        /* 4. 【選択中】現在選んでいるタブの明確な色付け */
+        /* 5. 【ご要望】選択中のタブを「濃い青色」に装飾 */
         div[data-testid="stTabs"] button[aria-selected="true"] {
-            background-color: #ff4b4b !important; /* 選択中の背景色（アクセントの赤系） */
-            color: #ffffff !important;           /* 選択中の文字色（白） */
-            border: 1px solid #ff4b4b !important;
-            box-shadow: 0px 4px 10px rgba(255, 75, 75, 0.3) !important; /* 少し光らせる */
+            background-color: #1a457a !important; /* 視認性の高い濃い青色 */
+            color: #ffffff !important;
+            border: 1px solid #245fa6 !important;
+            box-shadow: 0px 4px 10px rgba(26, 69, 122, 0.4) !important;
         }
         
-        /* Streamlit標準の細い下線を消す */
+        /* Streamlit標準の細い下線を消去 */
         div[data-testid="stTabs"] [data-baseweb="tab-highlight-bar"] {
             display: none !important;
         }
@@ -116,7 +123,7 @@ with tab1:
             else:
                 st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0;'>確認済</p>", unsafe_allow_html=True)
         
-        st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
 
 # ==========================================
 #  タブ2：管理者用の画面
