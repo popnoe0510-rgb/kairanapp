@@ -6,15 +6,18 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: カード内にボタンを綺麗に収めるためのレイアウト
+# CSS: カードの中にボタンを完全に押し込めるための調整
 st.markdown("""
     <style>
         .stApp { background-color: #1e293b; color: #f1f5f9; }
-        .member-card { background: #334155; padding: 1rem; border-radius: 12px; margin-bottom: 0.8rem; border: 1px solid #475569; }
+        .member-card { 
+            background: #334155; padding: 1rem; border-radius: 12px; 
+            margin-bottom: 0.8rem; border: 1px solid #475569;
+        }
         .status-header { background: #0f172a; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 6px solid #3b82f6; }
         .inline-time { font-size: 0.75rem; color: #94a3b8; margin-left: 8px; }
-        /* カード内のボタン調整 */
-        div[data-testid="stVerticalBlock"] > div > div > div > button { margin-top: 0.5rem; }
+        /* コンテナの余白調整 */
+        div[data-testid="stVerticalBlock"] > div:has(.member-card) { padding-bottom: 0px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -38,14 +41,14 @@ with tab1:
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         
-        # カードの開始
-        with st.container():
+        # 1つのカードとしてひとまとめにする
+        with st.container(border=True):
             time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
             icon = '✅' if is_done else '⏳'
             
-            st.markdown(f"<div class='member-card'><strong>{int(row['回覧順'])}. {row['お名前']}</strong> {icon}{time_text}", unsafe_allow_html=True)
+            st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {icon}{time_text}", unsafe_allow_html=True)
             
-            # カードの中にボタンを配置
+            # ボタンを同一コンテナ内に配置
             if is_done:
                 if st.button("取り消し", key=f"undo_{row.name}"):
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
@@ -55,7 +58,6 @@ with tab1:
                     now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
                     st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
     st.header("⚙️ 管理機能")
