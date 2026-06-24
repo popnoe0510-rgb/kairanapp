@@ -13,7 +13,7 @@ st.markdown("""
         .stApp { background-color: #242730; color: #ffffff; }
         input, textarea { background-color: #ffffff !important; color: #333 !important; border: 2px solid #58a6ff !important; }
         .stButton>button { border-radius: 8px; font-weight: bold; transition: all 0.2s; }
-        .success-box { padding: 1rem; background-color: #1a4731; border-left: 5px solid #38ef7d; color: white; margin-bottom: 1rem; }
+        .success-box { padding: 1.5rem; background-color: #1a4731; border-left: 5px solid #38ef7d; color: white; margin-bottom: 1rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -34,7 +34,7 @@ with tab1:
     unconfirmed = df[df['確認状況'] != '確認済']
     if not unconfirmed.empty:
         target = unconfirmed.iloc[0]
-        st.markdown(f"<div class='success-box'>👉 現在は <strong>{target['お名前']} さん</strong> の番です。<br>回覧物を確認したらボタンを押してください。</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='success-box'>👉 現在は <strong>{target['お名前']} さん</strong> の番です。<br>回覧物を確認したら下のボタンを押してください。</div>", unsafe_allow_html=True)
     else:
         st.success("🎉 全員確認完了しました！")
     
@@ -47,17 +47,17 @@ with tab1:
                 st.caption(f"✅ 確認済 ({row['確認日時']})")
             else:
                 if st.button("回覧板を見ました", key=f"btn_{row['お名前']}"):
-                    with st.spinner("処理しています..."):
-                        time.sleep(0.5)
+                    with st.spinner("記録しています..."):
                         sheet.update_cell(row.name + 2, 3, '確認済')
                         sheet.update_cell(row.name + 2, 4, datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M"))
                         
-                        # 修正点：三項演算子の構文を正しい形式に修正
+                        # 文言を「回してください」へ修正
                         next_person = unconfirmed.iloc[1]['お名前'] if len(unconfirmed) > 1 else None
-                        next_msg = f"次は {next_person} さんへ回ります。" if next_person else "全員完了です！"
+                        next_msg = f"次は {next_person} さんへ回してください。" if next_person else "全員完了です！"
                         
                         st.success(f"確認完了！ {next_msg}")
-                        time.sleep(1)
+                        # 7秒間の余韻
+                        time.sleep(7)
                         st.rerun()
 
 with tab2:
