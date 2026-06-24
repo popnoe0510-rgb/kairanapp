@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: 日時を横に並べるためのフレックスボックス調整
+# CSS: カード内にボタンを綺麗に収めるためのレイアウト
 st.markdown("""
     <style>
         .stApp { background-color: #1e293b; color: #f1f5f9; }
@@ -37,13 +37,15 @@ with tab1:
     
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
-        # 日時を横に小さく表示するロジック
-        time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
-        icon = '✅' if is_done else '⏳'
         
+        # カードの開始
         with st.container():
-            st.markdown(f"<div class='member-card'><strong>{int(row['回覧順'])}. {row['お名前']}</strong> {icon}{time_text}</div>", unsafe_allow_html=True)
+            time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
+            icon = '✅' if is_done else '⏳'
             
+            st.markdown(f"<div class='member-card'><strong>{int(row['回覧順'])}. {row['お名前']}</strong> {icon}{time_text}", unsafe_allow_html=True)
+            
+            # カードの中にボタンを配置
             if is_done:
                 if st.button("取り消し", key=f"undo_{row.name}"):
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
@@ -53,10 +55,12 @@ with tab1:
                     now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
                     st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
     st.header("⚙️ 管理機能")
     if st.text_input("管理パスワードを入力", type="password") == "7777":
+        
         st.subheader("1. 回覧状況初期化")
         if "reset_confirm" not in st.session_state:
             if st.button("🔄 リセット"):
@@ -66,4 +70,20 @@ with tab2:
             st.warning("⚠️ 回覧状況をリセットしますか？")
             col_a, col_b = st.columns(2)
             if col_a.button("✅ はい、実行します"):
-                sheet
+                sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
+                del st.session_state.reset_confirm
+                st.rerun()
+            if col_b.button("❌ キャンセル"):
+                del st.session_state.reset_confirm
+                st.rerun()
+        
+        st.write("---")
+        
+        st.subheader("2. 名簿の編集")
+        new_names = st.text_area("新規追加は行を挿入して名前入力、削除は名前削除。", value="\n".join(df["お名前"].tolist()), height=300)
+        if st.button("💾 この内容で上書き保存する"):
+            sheet.clear()
+            sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+            sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
+            st.success("✅ 名簿の更新が完了しました！")
+            st.rerun()
