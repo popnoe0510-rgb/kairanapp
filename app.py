@@ -8,20 +8,21 @@ from datetime import timedelta, timezone
 # 📱 画面の基本設定（表示デバイスに合わせて自動調整）
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 最上部の無駄な余白を限界まで削るための安全なCSS
+# 🎨 タブの邪魔をしない、安全な余白削減CSS
 st.markdown("""
     <style>
-        /* 画面上部の巨大な空白を削る */
+        /* 画面上部の余白を安全に削る */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 1rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
-        /* ヘッダーの隙間を消す */
+        /* クリックを邪魔していたヘッダー非表示のコードを見直し、高さを最小限にするだけに修正 */
         [data-testid="stHeader"] {
-            height: 0px !important;
+            height: 10px !important;
             background: transparent !important;
+            pointer-events: none; /* クリックをすり抜けさせてタブを触れるようにします */
         }
     </style>
 """, unsafe_allow_html=True)
@@ -57,7 +58,6 @@ with tab1:
     st.markdown("---")
     
     for i, row in df.iterrows():
-        # 💡 標準機能で左側（お名前：60%）と右側（ボタン：40%）を綺麗に1行に横並び
         col1, col2 = st.columns([3, 2])
         
         with col1:
@@ -69,7 +69,6 @@ with tab1:
         
         with col2:
             if row['確認状況'] != '確認済':
-                # ボタンの横幅を自動で列にフィットさせる
                 if st.button("確認", key=f"btn_{i}", use_container_width=True):
                     JST = timezone(timedelta(hours=+9), 'JST')
                     now = datetime.now(JST).strftime("%m/%d %H:%M")
@@ -79,10 +78,8 @@ with tab1:
                     st.success(f"{row['お名前']}さん確認！")
                     st.rerun()
             else:
-                # 確認済みの場合は右側に緑文字で表示
                 st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0;'>確認済</p>", unsafe_allow_html=True)
         
-        # 隙間を詰めた薄い区切り線
         st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
 # ==========================================
