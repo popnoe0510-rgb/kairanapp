@@ -7,13 +7,13 @@ import time
 
 st.set_page_config(page_title="回覧板アプリ", layout="centered")
 
-# 🎨 スタイル定義
+# 🎨 スタイル：アイコンを際立たせ、ボタンのくどさを排除
 st.markdown("""
     <style>
         .stApp { background-color: #242730; color: #ffffff; }
-        input, textarea { background-color: #ffffff !important; color: #333 !important; border: 2px solid #58a6ff !important; }
-        .stButton>button { border-radius: 8px; font-weight: bold; transition: all 0.2s; }
         .success-box { padding: 1.5rem; background-color: #1a4731; border-left: 5px solid #38ef7d; color: white; margin-bottom: 1rem; }
+        /* アイコンボタンの装飾 */
+        button[kind="secondary"] { border: none !important; background: none !important; color: #ff6b6b !important; font-size: 1.2rem !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,22 +39,23 @@ with tab1:
         st.success("🎉 全員確認完了しました！")
     
     for _, row in df.iterrows():
-        col1, col2 = st.columns([3, 2])
+        col1, col2 = st.columns([3, 1])
         with col1:
-            st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}**")
+            if row['確認状況'] == '確認済':
+                st.markdown(f"✅ {int(row['回覧順'])}. {row['お名前']} <small style='color:#888'>(済)</small>")
+            else:
+                st.markdown(f"👤 **{int(row['回覧順'])}. {row['お名前']}**")
         with col2:
             if row['確認状況'] == '確認済':
-                # ✅ 誤操作時の取り消し機能を追加
-                if st.button("取り消す", key=f"undo_{row['お名前']}"):
+                # ✅ ここでアイコンボタンに変更
+                if st.button("❌", key=f"undo_{row['お名前']}", help="確認を取り消す"):
                     sheet.update_cell(row.name + 2, 3, '未確認')
                     sheet.update_cell(row.name + 2, 4, '')
                     st.rerun()
-                st.caption(f"確認済 ({row['確認日時']})")
             else:
-                # ✅ ボタン押下のリズムを最適化
-                if st.button("回覧板を見ました", key=f"btn_{row['お名前']}"):
+                if st.button("確認", key=f"btn_{row['お名前']}"):
                     with st.spinner("記録中..."):
-                        time.sleep(0.5) # ロードは一瞬に
+                        time.sleep(0.5)
                         sheet.update_cell(row.name + 2, 3, '確認済')
                         sheet.update_cell(row.name + 2, 4, datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M"))
                         
@@ -62,24 +63,20 @@ with tab1:
                         next_msg = f"次は {next_person} さんへ回してください。" if next_person else "全員完了です！"
                         
                         st.success(f"確認完了！ {next_msg}")
-                        time.sleep(7) # メッセージは7秒表示
+                        time.sleep(7)
                         st.rerun()
 
 with tab2:
     st.subheader("⚙️ 管理者設定")
     if st.text_input("パスワード", type="password") == "7777":
-        st.write("---")
-        st.write("### 🔁 全員のリセット")
-        if st.button("全員のステータスをリセットする"):
+        if st.button("🔄 全員をリセットする"):
             for i in range(len(df)):
                 sheet.update_cell(i + 2, 3, '未確認')
                 sheet.update_cell(i + 2, 4, '')
             st.rerun()
         
-        st.write("---")
-        st.write("### 📝 名簿の編集")
         new_names = st.text_area("メンバーリスト", value="\n".join(df["お名前"].tolist()), height=200)
-        if st.button("💾 名簿を確定・更新する"):
+        if st.button("💾 名簿を更新"):
             sheet.clear()
             sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
             sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
