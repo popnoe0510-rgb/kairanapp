@@ -104,3 +104,129 @@ with tab1:
                         st.success(f"{row['お名前']}さん確認！")
                         st.rerun()
                 else:
+                    st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0;'>確認済</p>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
+
+# ==========================================
+#  タブ2：管理者用の画面
+# ==========================================
+with tab2:
+    st.subheader("⚙️ 管理者設定")
+    password = st.text_input("管理者パスワードを入力してください", type="password")
+    
+    if password == "7777":
+        st.success("認証されました")
+        
+        # ------------------------------------------
+        #  1. 閲覧状況のリセット
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### 🔁 1. 閲覧状況のリセット")
+        if st.button("全員の確認状況を「未確認」に戻す", use_container_width=True):
+            if not df.empty:
+                with st.spinner("リセット中..."):
+                    total_rows = len(df) + 1
+                    cell_list_status = sheet.range(2, 3, total_rows, 3)
+                    cell_list_time = sheet.range(2, 4, total_rows, 4)
+                    
+                    for cell in cell_list_status: cell.value = '未確認'
+                    for cell in cell_list_time: cell.value = ''
+                    
+                    sheet.update_cells(cell_list_status)
+                    sheet.update_cells(cell_list_time)
+                    st.success("全員のステータスをリセットしました！")
+                    st.rerun()
+            else:
+                st.info("登録されている人がいません。")
+
+        # ------------------------------------------
+        #  2. 登録されている人の一覧リスト
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### 📋 2. 登録メンバー一覧")
+        if not df.empty:
+            for _, row in df.iterrows():
+                status_emoji = "✅" if row['確認状況'] == "確認済" else "⏳"
+                time_str = f" ({row['確認日時']})" if row['確認日時'] else ""
+                st.text(f"【{row['回覧順']}番】 {row['お名前']} さん  [{status_emoji}{row['確認状況']}{time_str}]")
+        else:
+            st.info("現在、誰も登録されていません。")
+
+        # ------------------------------------------
+        #  3. 回覧順の編集（ドラッグ＆ドロップ版）
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### ↕️ 3. 回覧順の編集（ドラッグして並び替え）")
+        if not df.empty and len(df) > 1:
+            st.caption("👇 名前カードを長押ししながら上下にスライドして入れ替え、下の確定ボタンを押してください")
+            
+            current_names = df["お名前"].tolist()
+            
+            # ドラッグ＆ドロップUIを表示
+            sorted_names = sort_items(current_names, direction="vertical", key="sortable_member_list")
+            
+            if st.button("↕️ この順番で確定して保存する", use_container_width=True):
+                with st.spinner("新しい順番を保存中..."):
+                    current_order = df.loc[df["お名前"] == sorted_names[0], "回覧順"].values[0] if sorted_names else 1
+                    
+                    sorted_df_list = []
+                    for name in sorted_names:
+                        matched_row = df[df["お名前"] == name].copy()
+                        sorted_df_list.append(matched_row)
+                    
+                    updated_df = pd.concat(sorted_df_list).reset_index(drop=True)
+                    
+                    output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
+                    output_df["回覧順"] = output_df.index + 1
+                    
+                    sheet.clear()
+                    sheet.update([output_df.columns.values.tolist()] + output_df.values.tolist())
+                    st.success("順番の並び替えが完了しました！")
+                    st.rerun()
+        else:
+            st.info("並び替えるには2人以上の登録が必要です。")
+
+        # ------------------------------------------
+        #  4. 人の追加
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### ➕ 4. メンバーの追加")
+        new_name = st.text_input("追加する人のお名前を入力してください", key="add_name_input")
+        
+        if st.button("✨ この人を追加する", use_container_width=True):
+            if new_name.strip() == "":
+                st.warning("名前を入力してください。")
+            else:
+                with st.spinner("追加中..."):
+                    next_order = int(df["回覧順"].max() + 1) if (not df.empty and "回覧順" in df.columns) else 1
+                    sheet.append_row([next_order, new_name.strip(), "未確認", ""])
+                    st.success(f"「{new_name}」さんを追加しました！")
+                    st.rerun()
+
+        # ------------------------------------------
+        #  5. 人の削除
+        # ------------------------------------------
+        st.markdown("---")
+        st.markdown("### 🗑️ 5. メンバーの削除")
+        if not df.empty and "お名前" in df.columns:
+            delete_target = st.selectbox("削除する人を選択してください", options=df["お名前"].tolist(), key="delete_name_select")
+            
+            if st.button("❌ この人を削除する", type="primary", use_container_width=True):
+                with st.spinner("削除中..."):
+                    updated_df = df[df["お名前"] != delete_target].copy()
+                    updated_df = updated_df.sort_values(by="回覧順").reset_index(drop=True)
+                    
+                    output_df = updated_df[["回覧順", "お名前", "確認状況", "確認日時"]].copy()
+                    output_df["回覧順"] = output_df.index + 1
+                    
+                    sheet.clear()
+                    sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+                    if not output_df.empty:
+                        sheet.append_rows(output_df.values.tolist())
+                    st.success(f"「{delete_target}」さんを削除しました。")
+                    st.rerun()
+        else:
+            st.info("登録されている人がいません。")
+
+    elif password != "":
+        st.error("パスワードが違います。")
