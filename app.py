@@ -6,18 +6,20 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: カードの中にボタンを完全に押し込めるための調整
+# CSS: 線を使わず、背景色でエリアを明確に分ける
 st.markdown("""
     <style>
         .stApp { background-color: #1e293b; color: #f1f5f9; }
-        .member-card { 
-            background: #334155; padding: 1rem; border-radius: 12px; 
-            margin-bottom: 0.8rem; border: 1px solid #475569;
+        /* メンバーごとの背景色エリア */
+        .member-area { 
+            background-color: #334155; 
+            padding: 1rem; 
+            border-radius: 12px; 
+            margin-bottom: 1rem;
         }
-        .status-header { background: #0f172a; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 6px solid #3b82f6; }
-        .inline-time { font-size: 0.75rem; color: #94a3b8; margin-left: 8px; }
-        /* コンテナの余白調整 */
-        div[data-testid="stVerticalBlock"] > div:has(.member-card) { padding-bottom: 0px; }
+        .inline-time { font-size: 0.8rem; color: #94a3b8; margin-left: 8px; }
+        /* Streamlitボタンの余白調整 */
+        .stButton button { margin-top: 0.5rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -41,28 +43,30 @@ with tab1:
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         
-        # 1つのカードとしてひとまとめにする
-        with st.container(border=True):
-            time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
-            icon = '✅' if is_done else '⏳'
-            
-            st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {icon}{time_text}", unsafe_allow_html=True)
-            
-            # ボタンを同一コンテナ内に配置
-            if is_done:
-                if st.button("取り消し", key=f"undo_{row.name}"):
-                    sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
-                    st.rerun()
-            else:
-                if st.button("確認", key=f"btn_{row.name}", type="primary"):
-                    now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
-                    sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
-                    st.rerun()
+        # HTMLでエリアを定義
+        time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
+        icon = '✅' if is_done else '⏳'
+        
+        # エリア開始（CSS: .member-area）
+        st.markdown(f"<div class='member-area'><strong>{int(row['回覧順'])}. {row['お名前']}</strong> {icon}{time_text}", unsafe_allow_html=True)
+        
+        # エリア内にボタンを配置
+        if is_done:
+            if st.button("取り消し", key=f"undo_{row.name}"):
+                sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
+                st.rerun()
+        else:
+            if st.button("確認", key=f"btn_{row.name}", type="primary"):
+                now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
+                sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
+                st.rerun()
+        
+        # エリア終了
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
     st.header("⚙️ 管理機能")
     if st.text_input("管理パスワードを入力", type="password") == "7777":
-        
         st.subheader("1. 回覧状況初期化")
         if "reset_confirm" not in st.session_state:
             if st.button("🔄 リセット"):
@@ -80,10 +84,9 @@ with tab2:
                 st.rerun()
         
         st.write("---")
-        
         st.subheader("2. 名簿の編集")
-        new_names = st.text_area("新規追加は行を挿入して名前入力、削除は名前削除。", value="\n".join(df["お名前"].tolist()), height=300)
-        if st.button("💾 この内容で上書き保存する"):
+        new_names = st.text_area("1行1名で入力。並び順が閲覧順になります。", value="\n".join(df["お名前"].tolist()), height=300)
+        if st.button("💾 上書き保存"):
             sheet.clear()
             sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
             sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
