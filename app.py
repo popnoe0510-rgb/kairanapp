@@ -2,53 +2,124 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 背景色グレー、タブを濃い青色、さらに管理者画面のフォントや隙間を最適化するCSS
+# 🎨 必要最低限のデザイン調整（エラーの原因になりやすい複雑なCSSを廃止）
 st.markdown("""
     <style>
-        /* 1. アプリ全体の背景色をグレーに、文字を白に統一 */
-        .stApp {
-            background-color: #33363f !important; 
-            color: #ffffff !important;
-        }
+        .stApp { background-color: #33363f !important; color: #ffffff !important; }
+        .block-container { padding-top: 3.5rem !important; }
+        [data-testid="stHeader"] { background-color: #33363f !important; }
+        div[data-testid="stTabs"] button { flex: 1 !important; height: 48px !important; font-weight: bold !important; }
+        div[data-testid="stTabs"] button[aria-selected="true"] { background-color: #1a457a !important; color: #ffffff !important; }
+    </style>
+""", unsafe_allow_html=True)
 
-        /* 2. 上部のGitHubボタン等との被りを防ぐための安全な余白設定 */
-        .block-container {
-            padding-top: 3.5rem !important; 
-            padding-bottom: 1.5rem !important;
-            padding-left: 0.8rem !important;
-            padding-right: 0.8rem !important;
-        }
+# 1. スプレッドシート接続
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+try:
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ak_gAsNeo9LfdIDCN5ym65OZvVTxlL_YBOriuKpWA9s/edit"
+    sheet = client.open_by_url(SPREADSHEET_URL).sheet1
+except Exception as e:
+    st.error("スプレッドシートの接続設定を確認してください。")
+    st.stop()
+
+# データの読み込み
+data = sheet.get_all_records()
+df = pd.DataFrame(data)
+if not df.empty and "回覧順" in df.columns:
+    df = df.sort_values(by="回覧順").reset_index(drop=True)
+
+# タブ切り替え
+tab1, tab2 = st.tabs(["👤 回覧板チェック", "⚙️ 管理者メニュー"])
+
+# ==========================================
+#  タブ1：一般回覧者用の画面
+# ==========================================
+with tab1:
+    st.subheader("✅ 回覧板チェック状況")
+    st.markdown("---")
+    
+    if df.empty:
+        st.info("登録されているメンバーがいません。")
+    else:
+        for i, row in df.iterrows():
+            col1, col2 = st.columns([3, 2])
+            with col1:
+                if row['確認状況'] == '確認済':
+                    st.write(f"✅ {row['回覧順']}. {row['お名前']}")
+                    st.caption(f"🕒 {row['確認日時']}")
+                else:
+                    st.write(f"👤 {row['回覧順']}. {row['お名前']}")
+            
+            with col2:
+                if row['確認状況'] != '確認済':
+                    if st.button("確認", key=f"btn_{i}", use_container_width=True):
+                        JST = timezone(timedelta(hours=+9), 'JST')
+                        now = datetime.now(JST).strftime("%m/%d %H:%M")
+                        sheet.update_cell(int(i) + 2, 3, '確認済') 
+                        sheet.update_cell(int(i) + 2, 4, now)     
+                        st.success(f"{row['お名前']}さん確認！")
+                        st.rerun()
+                else:
+                    st.markdown("<p style='color: #2ecc71; font-weight: bold; text-align: center; margin: 0;'>確認済</p>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 6px 0; border:0; border-top: 1px solid #555;'>", unsafe_allow_html=True)
+
+# ==========================================
+#  タブ2：管理者用の画面（追加・削除のみ）
+# ==========================================
+with tab2:
+    st.subheader("⚙️ 管理者設定")
+    password = st.text_input("管理者パスワードを入力してください", type="password")
+    
+    if password == "7777":
+        st.success("認証されました")
         
-        /* システムヘッダーの重なりを防ぐ設定 */
-        [data-testid="stHeader"] {
-            height: 3.5rem !important;
-            background-color: #33363f !important; 
-        }
+        # ------------------------------------------
+        #  機能1：追加する
+        # ------------------------------------------
+        st.markdown("---")
+        st.caption("➕ 人を新規で追加する")
+        new_name = st.text_input("追加する人のお名前を入力してください", key="add_name_input")
+        
+        if st.button("✨ この人を追加する", use_container_width=True):
+            if new_name.strip() == "":
+                st.warning("名前を入力してください。")
+            else:
+                with st.spinner("追加中..."):
+                    next_order = int(df["回覧順"].max() + 1) if (not df.empty and "回覧順" in df.columns) else 1
+                    sheet.append_row([next_order, new_name.strip(), "未確認", ""])
+                    st.success(f"「{new_name}」さんを追加しました！")
+                    st.rerun()
 
-        /* 3. タブ全体のレイアウト調整 */
-        div[data-testid="stTabs"] {
-            border-bottom: none !important;
-            gap: 8px !important;
-        }
-        div[data-testid="stTabs"] [role="tablist"] {
-            gap: 10px !important;
-            width: 100% !important;
-        }
+        # ------------------------------------------
+        #  機能2：削除する
+        # ------------------------------------------
+        st.markdown("---")
+        st.caption("🗑️ 人を削除する")
+        if not df.empty and "お名前" in df.columns:
+            delete_target = st.selectbox("削除する人を選択してください", options=df["お名前"].tolist(), key="delete_name_select")
+            
+            if st.button("❌ この人を削除する", type="primary", use_container_width=True):
+                with st.spinner("削除中..."):
+                    updated_df = df[df["お名前"] != delete_target].copy()
+                    updated_df = updated_df.sort_values(by="回覧順").reset_index(drop=True)
+                    updated_df["回覧順"] = updated_df.index + 1
+                    
+                    sheet.clear()
+                    sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+                    if not updated_df.empty:
+                        sheet.append_rows(updated_df.values.tolist())
+                    st.success(f"「{delete_target}」さんを削除しました。")
+                    st.rerun()
+        else:
+            st.info("登録されている人がいません。")
 
-        /* 4. タブを大きなボタン化（未選択状態：少し暗いグレー） */
-        div[data-testid="stTabs"] button {
-            flex: 1 !important;
-            height: 48px !important; 
-            background-color: #25262d !important;
-            color: #b0b5c0 !important;
-            border-radius: 8px !important;
-            border: 1px solid #4a4d5a !important;
-            padding: 0px 10px !important;
-            font-weight: bold !important;
-            font-size:
+    elif password != "":
+        st.error("パスワードが違います。")
