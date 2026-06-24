@@ -6,11 +6,13 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: 青系で統一し、カード構造を安定させる
+# CSS: ボタンの配置と青系配色を調整
 st.markdown("""
     <style>
         .stApp { background-color: #0f172a; color: #f1f5f9; }
         .inline-time { font-size: 0.8rem; color: #94a3b8; margin-left: 8px; }
+        /* ボタンを右寄せするための調整 */
+        div[data-testid="column"] { display: flex; align-items: center; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -34,48 +36,27 @@ with tab1:
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         with st.container(border=True):
-            time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
-            st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {'✅' if is_done else '⏳'} {time_text}", unsafe_allow_html=True)
+            # カラムを使って名前とボタンを横並びにする
+            col1, col2 = st.columns([3, 1])
             
-            if is_done:
-                if st.button("取り消し", key=f"undo_{row.name}"):
-                    sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
-                    st.rerun()
-            else:
-                if st.button("確認", key=f"btn_{row.name}"):
-                    now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
-                    sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
-                    st.rerun()
+            with col1:
+                time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
+                st.markdown(f"**{int(row['回覧順'])}. {row['お名前']}** {'✅' if is_done else '⏳'} {time_text}", unsafe_allow_html=True)
+            
+            with col2:
+                # ボタンを配置（取り消しは右寄せ、確認は primary=青）
+                if is_done:
+                    if st.button("取り消し", key=f"undo_{row.name}"):
+                        sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
+                        st.rerun()
+                else:
+                    if st.button("確認", key=f"btn_{row.name}", type="primary"):
+                        now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
+                        sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
+                        st.rerun()
 
 with tab2:
     st.header("⚙️ 管理機能")
     if st.text_input("管理パスワードを入力", type="password") == "7777":
-        
-        # 1. リセットの確認プロセスを復活
         st.subheader("1. 回覧状況リセット")
-        if "reset_confirm" not in st.session_state:
-            if st.button("🔄 全員をリセットする"):
-                st.session_state.reset_confirm = True
-                st.rerun()
-        
-        if st.session_state.get("reset_confirm"):
-            st.warning("⚠️ 本当に全員の回覧状況をリセットしますか？")
-            col1, col2 = st.columns(2)
-            if col1.button("✅ はい（実行）"):
-                sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
-                del st.session_state.reset_confirm
-                st.success("✅ リセットが完了しました！")
-                st.rerun()
-            if col2.button("❌ キャンセル"):
-                del st.session_state.reset_confirm
-                st.rerun()
-        
-        st.write("---")
-        st.subheader("2. 名簿の編集")
-        new_names = st.text_area("1行1名で入力。", value="\n".join(df["お名前"].tolist()), height=300)
-        if st.button("💾 上書き保存"):
-            sheet.clear()
-            sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
-            sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
-            st.success("✅ 名簿を更新しました。")
-            st.rerun()
+        if "reset_
