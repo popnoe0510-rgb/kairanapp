@@ -39,7 +39,7 @@ with tab1:
                 sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
                 st.rerun()
         else:
-            if st.button(f"{row['お名前']} さんとして確認", key=f"btn_{row.name}", type="primary"):
+            if st.button(f"確認", key=f"btn_{row.name}", type="primary"):
                 now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                 sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
                 st.rerun()
@@ -49,13 +49,13 @@ with tab2:
     if st.text_input("管理パスワードを入力", type="password") == "7777":
         
         # 1. 全員リセット（確認ワンクッション付き）
-        st.subheader("1. 全員リセット")
+        st.subheader("1. 回覧状況初期化")
         if "reset_confirm" not in st.session_state:
-            if st.button("🔄 全員リセットを実行"):
+            if st.button("🔄 リセット"):
                 st.session_state.reset_confirm = True
         
         if st.session_state.get("reset_confirm"):
-            st.warning("⚠️ 本当に全員の回覧状況をリセットしますか？（この操作は取り消せません）")
+            st.warning("⚠️ 回覧状況をリセットしますか？")
             col_a, col_b = st.columns(2)
             if col_a.button("✅ はい、実行します"):
                 sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
@@ -70,10 +70,10 @@ with tab2:
         
         # 2. 名簿編集（結果が消えないようにst.successを長めに表示）
         st.subheader("2. 名簿の編集")
-        new_names = st.text_area("メンバー名簿（1行1名）", value="\n".join(df["お名前"].tolist()), height=300)
+        new_names = st.text_area("新規追加は行を挿入して名前入力、削除は名前削除。上から順番に閲覧順が決まります。", value="\n".join(df["お名前"].tolist()), height=300)
         if st.button("💾 この内容で上書き保存する"):
             sheet.clear()
             sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
             sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
             # 完了メッセージを明示的に残す
-            st.success("✅ 名簿の更新が完了しました！このメッセージを閉じるまで内容は保持されます。")
+            st.success("✅ 名簿の更新が完了しました！")
