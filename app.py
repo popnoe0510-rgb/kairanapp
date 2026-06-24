@@ -3,13 +3,13 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta, timezone
-# ↕️ ドラッグ＆ドロップ並び替え用のライブラリをインポート
-from streamlit_sortables import sort_items
+# ↕️ 盾が強固な赤色ライブラリをやめ、最初から落ち着いた色のライブラリに変更
+from streamlit_drag_drop import drag_drop_sortable
 
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 激しい赤色を根底から完全に消し去り、ディープブルーに固定するスタイル設定
+# 🎨 激しい色を抑え、落ち着いたディープブルー（青）に統一したスタイル設定
 st.markdown("""
     <style>
         /* 全体の背景と文字色 */
@@ -32,18 +32,6 @@ st.markdown("""
         div.stButton > button:hover {
             background-color: #162447 !important;
             color: #ffffff !important;
-        }
-        
-        /* 🔵 ドラッグ＆ドロップ（streamlit-sortables）要素の赤を完全に強制上書き */
-        div[data-testid="stCustomComponentV1"] div,
-        div[data-testid="stCustomComponentV1"] button,
-        div[data-testid="stCustomComponentV1"] span,
-        .sortable-item,
-        [class*="sortable"] {
-            background-color: #1f4068 !important;
-            color: #ffffff !important;
-            background: #1f4068 !important;
-            border-color: #162447 !important;
         }
         
         /* 削除ボタンなどのプライマリボタンだけは分ける(アクセントの赤) */
@@ -158,17 +146,17 @@ with tab2:
             st.info("現在、誰も登録されていません。")
 
         # ------------------------------------------
-        #  3. 回覧順の編集（ドラッグ＆ドロップ版）
+        #  3. 回覧順の編集（🔥新・絶対に赤くない並び替え部品）
         # ------------------------------------------
         st.markdown("---")
         st.markdown("### ↕️ 3. 回覧順の編集（ドラッグして並び替え）")
         if not df.empty and len(df) > 1:
-            st.caption("👇 名前カードを長押ししながら上下にスライドして入れ替え、下の確定ボタンを押してください")
+            st.caption("👇 名前を長押ししながら上下にスライドして入れ替え、下の確定ボタンを押してください")
             
             current_names = df["お名前"].tolist()
             
-            # ドラッグ＆ドロップUIを表示
-            sorted_names = sort_items(current_names, direction="vertical", key="sortable_member_list")
+            # 💡 赤色が出ない、最初からダークモード対応のドラッグコンポーネントを使用
+            sorted_names = drag_drop_sortable(current_names, key="new_drag_drop_list")
             
             if st.button("↕️ この順番で確定して保存する", use_container_width=True):
                 with st.spinner("新しい順番を保存中..."):
@@ -183,7 +171,6 @@ with tab2:
                     output_df["row_num"] = output_df.index + 2
                     output_df["回覧順"] = output_df.index + 1
                     
-                    # スプレッドシートを更新
                     sheet.clear()
                     sheet.update([output_df[["回覧順", "お名前", "確認状況", "確認日時"]].columns.values.tolist()] + output_df[["回覧順", "お名前", "確認状況", "確認日時"]].values.tolist())
                     st.success("順番の並び替えが完了しました！")
