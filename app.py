@@ -6,11 +6,19 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: コンテナ自体のスタイルを調整
+# CSS: 赤色を完全に廃し、青系グラデーションで統一
 st.markdown("""
     <style>
-        .stApp { background-color: #1e293b; color: #f1f5f9; }
+        .stApp { background-color: #0f172a; color: #f1f5f9; }
         .inline-time { font-size: 0.8rem; color: #94a3b8; margin-left: 8px; }
+        /* ボタンの色を青系に強制適用 */
+        div.stButton > button {
+            background-color: #1e40af !important;
+            color: white !important;
+            border: 1px solid #3b82f6 !important;
+        }
+        /* 警告エリアも青系で統一 */
+        .stAlert { background-color: #1e3a8a !important; color: #e0e7ff !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -31,11 +39,8 @@ with tab1:
     else:
         st.success("✅ 全員確認完了です！")
     
-    # ここが各メンバーの領域（コンテナ）
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
-        
-        # border=True を指定することで、確実に領域として区切ります
         with st.container(border=True):
             time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
             icon = '✅' if is_done else '⏳'
@@ -47,7 +52,7 @@ with tab1:
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
                     st.rerun()
             else:
-                if st.button("確認", key=f"btn_{row.name}", type="primary"):
+                if st.button("確認", key=f"btn_{row.name}"):
                     now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
                     sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
                     st.rerun()
@@ -61,9 +66,9 @@ with tab2:
                 st.session_state.reset_confirm = True
         
         if st.session_state.get("reset_confirm"):
-            st.warning("⚠️ 回覧状況をリセットしますか？")
+            st.info("⚠️ 回覧状況をリセットしますか？")
             col_a, col_b = st.columns(2)
-            if col_a.button("✅ はい、実行します"):
+            if col_a.button("✅ 実行する"):
                 sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
                 del st.session_state.reset_confirm
                 st.rerun()
@@ -73,10 +78,10 @@ with tab2:
         
         st.write("---")
         st.subheader("2. 名簿の編集")
-        new_names = st.text_area("1行1名で入力。並び順が閲覧順になります。", value="\n".join(df["お名前"].tolist()), height=300)
+        new_names = st.text_area("1行1名で入力。", value="\n".join(df["お名前"].tolist()), height=300)
         if st.button("💾 上書き保存"):
             sheet.clear()
             sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
             sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
-            st.success("✅ 名簿の更新が完了しました！")
+            st.success("✅ 名簿を更新しました。")
             st.rerun()
