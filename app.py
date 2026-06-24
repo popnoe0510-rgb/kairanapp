@@ -3,13 +3,11 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta, timezone
-# ↕️ 盾が強固な赤色ライブラリをやめ、最初から落ち着いた色のライブラリに変更
-from streamlit_drag_drop import drag_drop_sortable
 
 # 📱 画面の基本設定
 st.set_page_config(page_title="回覧板チェック", layout="centered")
 
-# 🎨 激しい色を抑え、落ち着いたディープブルー（青）に統一したスタイル設定
+# 🎨 激しい色を徹底的に排除し、落ち着いたディープブルー（青）に統一したスタイル設定
 st.markdown("""
     <style>
         /* 全体の背景と文字色 */
@@ -146,22 +144,34 @@ with tab2:
             st.info("現在、誰も登録されていません。")
 
         # ------------------------------------------
-        #  3. 回覧順の編集（🔥新・絶対に赤くない並び替え部品）
+        #  3. 回覧順の編集（💡100%安全なセレクトボックス方式）
         # ------------------------------------------
         st.markdown("---")
-        st.markdown("### ↕️ 3. 回覧順の編集（ドラッグして並び替え）")
+        st.markdown("### ↕️ 3. 回覧順の編集")
         if not df.empty and len(df) > 1:
-            st.caption("👇 名前を長押ししながら上下にスライドして入れ替え、下の確定ボタンを押してください")
+            st.caption("👇 順番を変えたい人と、その人の新しい位置（何番目か）を選んで確定してください")
             
-            current_names = df["お名前"].tolist()
+            # 誰の順番を変えるか選択
+            target_name = st.selectbox("順番を変更するメンバー", options=df["お名前"].tolist(), key="move_user_select")
             
-            # 💡 赤色が出ない、最初からダークモード対応のドラッグコンポーネントを使用
-            sorted_names = drag_drop_sortable(current_names, key="new_drag_drop_list")
+            # 何番目に移動させるか選択（1番目 〜 最大人数番目）
+            current_idx = df[df["お名前"] == target_name].index[0]
+            target_pos = st.selectbox(
+                f"{target_name} さんの新しい位置", 
+                options=list(range(1, len(df) + 1)), 
+                index=current_idx,
+                key="move_pos_select"
+            )
             
-            if st.button("↕️ この順番で確定して保存する", use_container_width=True):
-                with st.spinner("新しい順番を保存中..."):
+            if st.button("↕️ この設定で順番を並び替える", use_container_width=True):
+                with st.spinner("順番を並び替え中..."):
+                    # リストの並び替えロジック
+                    names_list = df["お名前"].tolist()
+                    names_list.remove(target_name)
+                    names_list.insert(target_pos - 1, target_name)
+                    
                     sorted_df_list = []
-                    for name in sorted_names:
+                    for name in names_list:
                         matched_row = df[df["お名前"] == name].copy()
                         sorted_df_list.append(matched_row)
                     
@@ -173,7 +183,7 @@ with tab2:
                     
                     sheet.clear()
                     sheet.update([output_df[["回覧順", "お名前", "確認状況", "確認日時"]].columns.values.tolist()] + output_df[["回覧順", "お名前", "確認状況", "確認日時"]].values.tolist())
-                    st.success("順番の並び替えが完了しました！")
+                    st.success("順番の変更が完了しました！")
                     st.rerun()
         else:
             st.info("並び替えるには2人以上の登録が必要です。")
