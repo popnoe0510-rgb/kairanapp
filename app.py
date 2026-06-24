@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# 🎨 ダークモード対応・視認性特化CSS
+# 🎨 視認性特化CSS
 st.markdown("""
     <style>
         .stApp { background-color: #1e293b; color: #f1f5f9; }
@@ -26,8 +26,6 @@ tab1, tab2 = st.tabs(["📌 回覧状況", "⚙️ 管理"])
 
 with tab1:
     st.subheader("📋 回覧の進捗状況")
-    
-    # 【UI改善】誰の番かを明確に通知
     unconfirmed = df[df['確認状況'] != '確認済']
     if not unconfirmed.empty:
         current_user = unconfirmed.iloc[0]['お名前']
@@ -37,4 +35,41 @@ with tab1:
 
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
-        st.markdown(f"<div class='member-card'><strong>{int(row['回覧順'])}. {row['お名前']}</strong> {'✅' if is_done else '⏳'}<br><small style='color:#94a3b8;'>{row['確認日時'] if is_done else '
+        # 安全に文字列を連結
+        time_display = str(row['確認日時']) if is_done else '未確認'
+        status_icon = '✅' if is_done else '⏳'
+        
+        card_html = f"""<div class='member-card'>
+            <strong>{int(row['回覧順'])}. {row['お名前']}</strong> {status_icon}<br>
+            <small style='color:#94a3b8;'>{time_display}</small>
+        </div>"""
+        st.markdown(card_html, unsafe_allow_html=True)
+        
+        if is_done:
+            if st.button("確認を取り消す", key=f"undo_{row.name}"):
+                sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['未確認', '']]}])
+                st.rerun()
+        else:
+            if st.button(f"{row['お名前']} さんとして確認", key=f"btn_{row.name}", type="primary"):
+                now = datetime.now(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
+                sheet.batch_update([{'range': f'C{row.name+2}:D{row.name+2}', 'values': [['確認済', now]]}])
+                st.rerun()
+
+with tab2:
+    st.write("### ⚙️ 管理メニュー")
+    if st.text_input("管理パスワード", type="password") == "7777":
+        if st.button("🔄 全員を未確認にリセットする"):
+            sheet.batch_update([{'range': f'C2:D{len(df)+1}', 'values': [['未確認', ''] for _ in range(len(df))]}])
+            st.warning("全データをリセットしました。")
+            st.rerun()
+        
+        st.write("---")
+        st.write("#### 👤 メンバー名簿の編集")
+        st.caption("名前を1行に1人ずつ入力して保存してください。")
+        new_names = st.text_area("名簿編集", value="\n".join(df["お名前"].tolist()), height=250)
+        if st.button("💾 この内容で保存する"):
+            sheet.clear()
+            sheet.append_row(["回覧順", "お名前", "確認状況", "確認日時"])
+            sheet.append_rows([[i+1, n.strip(), '未確認', ''] for i, n in enumerate(new_names.split("\n")) if n.strip()])
+            st.success("名簿を更新しました。")
+            st.rerun()
