@@ -6,16 +6,10 @@ from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="回覧板", layout="centered")
 
-# CSS: コンテナそのものをカード化し、中の要素を完全に統括
+# CSS: コンテナ自体のスタイルを調整
 st.markdown("""
     <style>
         .stApp { background-color: #1e293b; color: #f1f5f9; }
-        div[data-testid="stVerticalBlock"] > div:has(button) {
-            background-color: #334155;
-            padding: 1rem;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-        }
         .inline-time { font-size: 0.8rem; color: #94a3b8; margin-left: 8px; }
     </style>
 """, unsafe_allow_html=True)
@@ -37,11 +31,12 @@ with tab1:
     else:
         st.success("✅ 全員確認完了です！")
     
+    # ここが各メンバーの領域（コンテナ）
     for _, row in df.iterrows():
         is_done = row['確認状況'] == '確認済'
         
-        # ボタンと情報を同じブロックに強制的にまとめる
-        with st.container():
+        # border=True を指定することで、確実に領域として区切ります
+        with st.container(border=True):
             time_text = f"<span class='inline-time'>{row['確認日時']}</span>" if is_done else ""
             icon = '✅' if is_done else '⏳'
             
